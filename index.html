@@ -120,22 +120,39 @@ a.item {
       border-top-right-radius: 5px;
     }
 
-    /* Nhãn giảm giá trên ảnh */
-    .image-container .discount-label {
-      position: absolute;
-      top: 0;
-      right: 0;
-      background-color: #ffcc00;
-      color: #fff;
-      font-size: 10px;
-      padding: 0px 4px;
-      border-top-right-radius: 5px;
-      border-bottom-left-radius: 5px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      line-height: 1.2;
-    }
+ /* Nhãn giảm giá trên ảnh */
+.image-container .discount-label {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: #ffcc00;
+  color: #fff;
+  font-size: 10px;
+  padding: 0px 4px;
+  border-top-right-radius: 5px;
+  border-bottom-left-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+
+  /* Áp dụng hiệu ứng nhấp nháy */
+  animation: blink 1s infinite;  /* Tạo hiệu ứng nhấp nháy */
+}
+
+/* Định nghĩa hiệu ứng nhấp nháy */
+@keyframes blink {
+  0% {
+    opacity: 1; /* Hiển thị đầy đủ */
+  }
+  50% {
+    opacity: 0; /* Ẩn đi */
+  }
+  100% {
+    opacity: 1; /* Hiển thị lại */
+  }
+}
+
 
     .item .info-row {
       display: flex;
