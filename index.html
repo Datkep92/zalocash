@@ -22,7 +22,7 @@ a.item {
     /* Khung chứa toàn bộ nội dung */
     .container {
       max-width: 100%;
-      padding: 3px;
+      padding: 5px;
     }
 
 .header {
@@ -84,6 +84,8 @@ a.item {
       flex-wrap: wrap;
       justify-content: space-between;
       margin: -3px;
+        gap: 2px; /* ✅ thêm dòng này */
+
     }
 
 .item {
@@ -93,7 +95,7 @@ a.item {
   text-align: center;
   padding: 0;
   margin: 5px 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 px 3px rgba(0, 0, 0, 0.1);
   flex: 1 1 calc(25% - 6px);
   box-sizing: border-box;
   overflow: hidden; /* ✅ Tránh tràn ra ngoài viền */
@@ -187,19 +189,6 @@ a.item {
       min-height: 12px;
     }
 
-   /* Dòng ưu đãi */
-.item .discount {
-  font-size: 8px;
-  color: #fff;
-  background-color: #ff007a;
-  padding: 0 0px;
-  margin: 0px 0;
-  line-height: 1;
-  min-height: 12px;
-  border-radius: 0;
-  text-decoration: none; /* ✅ Bỏ gạch chân */
-}
-
 .item .button {
   background-color: #007bff;
   color: #fff;
@@ -210,17 +199,29 @@ a.item {
   border-top-left-radius: 0;
   border-top-right-radius: 0;
   cursor: pointer;
-  font-size: 12px;
-  margin-top: 3px;
+  font-size: 10px;
+  margin: 0;  /* ✅ Bỏ margin để không có khoảng cách */
   text-decoration: none; /* ✅ Bỏ gạch chân */
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 16px;
+  height: 15px; /* Nếu cần có chiều cao, vẫn có thể giữ chiều cao */
   box-sizing: border-box;
-   text-decoration: none; /* ✅ Bỏ gạch chân */
-
 }
+
+/* Nếu phần tử .discount cũng có margin hoặc padding, xóa chúng */
+.item .discount {
+  font-size: 8px;
+  color: #fff;
+  background-color: #ff007a;
+  padding: 0; /* Bỏ padding */
+  margin: 0;  /* Bỏ margin */
+  line-height: 1;
+  min-height: 1px;
+  border-radius: 0;
+  text-decoration: none; /* Bỏ gạch chân */
+}
+
 
   </style>
 </head>
