@@ -84,14 +84,15 @@
     .item {
   background-color: #fff;
   border: 1px solid #ffcc00;
-  border-radius: 10px;
+  border-radius: 5px; /* ✅ Bo viền nhẹ 5px */
   text-align: center;
   padding: 0;
-  margin: 5px 0; /* Thêm margin trên dưới */
+  margin: 5px 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   flex: 1 1 calc(25% - 6px);
   box-sizing: border-box;
 }
+
 
     .image-container {
       position: relative;
@@ -185,32 +186,34 @@
   font-size: 8px;
   color: #fff;
   background-color: #ff007a;
-  padding: 0 0px;  /* Padding trên và dưới bằng 0 */
+  padding: 0 0px;
   margin: 0px 0;
   line-height: 1;
   min-height: 12px;
-  border-radius: 0;  /* Không bo góc */
+  border-radius: 0;
+  text-decoration: none; /* ✅ Bỏ gạch chân */
 }
 
-    .item .button {
-      background-color: #007bff;
-      color: #fff;
-      border: none;
-      padding: 0;
-      border-bottom-left-radius: 5px;
-      border-bottom-right-radius: 5px;
-      border-top-left-radius: 0;
-      border-top-right-radius: 0;
-      cursor: pointer;
-      font-size: 12px;
-      margin-top: 3px;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 16px;
-      box-sizing: border-box;
-    }
+.item .button {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 0;
+  border-bottom-left-radius: 5px;
+  border-bottom-right-radius: 5px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  cursor: pointer;
+  font-size: 12px;
+  margin-top: 3px;
+  text-decoration: none; /* ✅ Bỏ gạch chân */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+  box-sizing: border-box;
+}
+
   </style>
 </head>
 <body>
