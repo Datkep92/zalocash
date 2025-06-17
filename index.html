@@ -1,503 +1,150 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <!-- Ngăn thu phóng khi pinch hoặc double-tap -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>YoCash - Vay Nhanh CCCD</title>
+  <meta charset="UTF-8" />
+  <title>Trích xuất Hóa đơn - Hộ KD</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <style>
-    /* Reset mặc định */
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: #f5f5f5;
-    }
-a.item {
-  display: block;
-  text-decoration: none; /* ✅ Bỏ gạch chân toàn bộ item */
-  color: inherit;
-}
-    /* Khung chứa toàn bộ nội dung */
-    .container {
-      max-width: 100%;
-      padding: 5px;
-    }
-
-.header {
-  margin: 0;           /* Loại bỏ khoảng cách mặc định */
-  padding: 0;          /* Loại bỏ padding để sát viền trên */
-  text-align: center;  /* Căn giữa nội dung */
-}
-
-.header h1 {
-  color: #ff007a;      /* Màu chữ */
-  font-size: 24px;     /* Kích thước chữ */
-  margin: 0;           /* Loại bỏ margin của h1 để sát với phần viền trên */
-  padding: 0;          /* Loại bỏ padding của h1 */
-  background-color: #fff;  /* Màu nền trắng */
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);  /* Bóng đổ nhẹ để nổi bật */
-
-}
-
-
-   .nav button {
-  background-color: #fff;
-  border: 1px solid #d9d9d9;
-  padding: 8px 15px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 10px;
-  margin: 4px;
-  
-  /* Thêm hiệu ứng bóng đổ để tạo chiều sâu 3D */
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
-  transition: all 0.3s ease;  /* Thêm hiệu ứng chuyển động khi hover */
-}
-
-/* Thêm hiệu ứng khi người dùng hover (di chuột lên nút) */
-.nav button:hover {
-  background-color: #f1f1f1;  /* Thay đổi màu nền khi hover */
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.08); /* Bóng đổ đậm hơn */
-  transform: translateY(-2px);  /* Tạo hiệu ứng đẩy nút lên khi hover */
-}
-
-/* Thêm hiệu ứng khi nhấn nút (active) */
-.nav button:active {
-  background-color: #e0e0e0;  /* Thay đổi màu nền khi nhấn */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);  /* Bóng đổ nhẹ hơn khi nhấn */
-  transform: translateY(2px);  /* Tạo hiệu ứng đẩy nút xuống khi nhấn */
-}
-
-    /* Đoạn giới thiệu ngắn */
-    .intro {
-      text-align: center;
-      font-size: 14px;
-      padding: 10px 0;
-      line-height: 0.1;
-    }
-
-    /* Lưới hiển thị các item */
-    .grid {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      margin: -3px;
-        gap: 2px; /* ✅ thêm dòng này */
-
-    }
-
-.item {
-  background-color: #fff;
-  border: 1px solid #ffcc00;
-  border-radius: 5px;
-  text-align: center;
-  padding: 0;
-  margin: 5px 0;
-  box-shadow: 0 px 3px rgba(0, 0, 0, 0.1);
-  flex: 1 1 calc(25% - 6px);
-  box-sizing: border-box;
-  overflow: hidden; /* ✅ Tránh tràn ra ngoài viền */
-}
-
-
-    .image-container {
-      position: relative;
-      overflow: hidden;
-      padding: 0;
-      margin: 0;
-    }
-
-    .item img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-      margin: 0;
-      padding: 0;
-      border-top-left-radius: 5px;
-      border-top-right-radius: 5px;
-    }
-
- /* Nhãn giảm giá trên ảnh */
-.image-container .discount-label {
-  position: absolute;
-  top: 0;
-  right: 0;
-  background-color: #ffcc00;
-  color: #fff;
-  font-size: 10px;
-  padding: 0px 4px;
-  border-top-right-radius: 5px;
-  border-bottom-left-radius: 5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1.2;
-
-  /* Áp dụng hiệu ứng nhấp nháy */
-  animation: blink 1s infinite;  /* Tạo hiệu ứng nhấp nháy */
-}
-
-/* Định nghĩa hiệu ứng nhấp nháy */
-@keyframes blink {
-  0% {
-    opacity: 1; /* Hiển thị đầy đủ */
-  }
-  50% {
-    opacity: 0; /* Ẩn đi */
-  }
-  100% {
-    opacity: 1; /* Hiển thị lại */
-  }
-}
-
-
-    .item .info-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: stretch;
-      margin: 0;
-      margin-top: 3px;
-      min-height: 38px;
-      padding: 0 3px;
-    }
-
-    .item .amount, .item .limit {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-
-    .item .amount span, .item .limit span {
-      font-size: 10px;
-      color: #0055aa;
-      line-height: 0.9;
-    }
-
-    .item .amount span:nth-child(1) {
-      margin-top: 3px;
-      font-size: 10px;
-    }
-
-    .item .amount span:nth-child(2) {
-      font-size: 16px;
-      margin-top: 2px;
-      color: #ff0000;
-      margin: 2;
-      font-weight: 600;
-      text-align: center;
-    }
-
-    .item .amount span:nth-child(3) {
-      font-size: 12px;
-      color: #0055aa;
-      margin-top: 2px;
-      text-align: center;
-    }
-
-    .item .period {
-      font-size: 10px;
-      color: #666;
-      margin: 3px 0;
-      line-height: 1.2;
-      min-height: 12px;
-    }
-
-.item .button {
-  background-color: #007bff;
-  color: #fff;
-  border: none;
-  padding: 0;
-  border-bottom-left-radius: 5px;
-  border-bottom-right-radius: 5px;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-  cursor: pointer;
-  font-size: 10px;
-  margin: 0;  /* ✅ Bỏ margin để không có khoảng cách */
-  text-decoration: none; /* ✅ Bỏ gạch chân */
-  display: flex;
-  font-weight: 600;
-  align-items: center;
-  justify-content: center;
-  height: 15px; /* Nếu cần có chiều cao, vẫn có thể giữ chiều cao */
-  box-sizing: border-box;
-}
-
-/* Nếu phần tử .discount cũng có margin hoặc padding, xóa chúng */
-.item .discount {
-  font-size: 8px;
-  color: #fff;
-  background-color: #ff007a;
-  padding: 0; /* Bỏ padding */
-  margin: 0;  /* Bỏ margin */
-  line-height: 1;
-  min-height: 1px;
-  border-radius: 0;
-  text-decoration: none; /* Bỏ gạch chân */
-}
-
-
+    body { font-family: Arial; margin: 0; display: flex; height: 100vh; }
+    .sidebar { width: 250px; background: #f0f0f0; padding: 15px; overflow-y: auto; }
+    .main { flex: 1; padding: 20px; overflow-y: auto; }
+    h3 { margin-top: 0; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 6px; background: #fff; border: 1px solid #ccc; margin-bottom: 4px; cursor: pointer; }
+    input, button { margin: 8px 0; padding: 8px; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
+    .total { margin-top: 10px; font-weight: bold; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>YOCASH - VAY NHANH CCCD</h1>
-    </div>
 
-    <div class="nav">
-      <button>Hướng Dẫn Vay Để Duyệt</button>
-      <button>Các Thứ Doanh Lưu Đào Khi Vay</button>
-    </div>
+  <div class="sidebar">
+    <h3>📂 Hộ Kinh Doanh</h3>
+    <ul id="hkdList"></ul>
+  </div>
 
-    <div class="intro">
-      <p>Danh sách khoản vay Online chỉ cần CCCD</p>
-      <p>Chỉ cần CCCD giấy/nguyên trong ngày.</p>
-    </div>
+  <div class="main">
+    <h2>📥 Chọn hóa đơn PDF</h2>
+    <input type="file" id="pdfFile" accept="application/pdf" />
+    <button onclick="xuLyPDF()">Trích xuất hóa đơn</button>
 
-    <div class="grid">
-      
-      
-      
-      
-      
-      <!-- Item mẫu -->
- <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
-<a href="https://www.zalocash.net" class="item">
-  <div class="image-container">
-    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
-    <div class="discount-label">0% lãi</div>
+    <div id="thongTinHKD"></div>
+    <div id="bangHang"></div>
   </div>
-    <div class="discount">Khuyến mãi</div>
 
-  <div class="info-row">
-    <div class="amount">
-      <span>Số Tiền:</span>
-      <span>1-10</span>
-      <span>Triệu</span>
-    </div>
-    <div class="limit">
-      <span>Thủ tục</span>
-      <span>CCCD</span>
-      <span>tối đa</span>
-      <span>3 tháng</span>
-    </div>
-  </div>
-  <div class="period">Tuổi: 20 - 60</div>
-  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
- <div class="button">CHI TIẾT</div>
-</a>
-      
-      
-      
-      
+  <script>
+    let ds = JSON.parse(localStorage.getItem('DS_HKD') || '[]');
+    let curHKD = null;
 
-      <!-- Thêm các item khác ở đây -->
- <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
-<a href="https://www.zalocash.net" class="item">
-  <div class="image-container">
-    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
-    <div class="discount-label">0% lãi</div>
-  </div>
-    <div class="discount">Khuyến mãi</div>
-  <div class="info-row">
-    <div class="amount">
-      <span>Số Tiền:</span>
-      <span>1-10</span>
-      <span>Triệu</span>
-    </div>
-    <div class="limit">
-      <span>Thủ tục</span>
-      <span>CCCD</span>
-      <span>tối đa</span>
-      <span>3 tháng</span>
-    </div>
-  </div>
-  <div class="period">Tuổi: 20 - 60</div>
-  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
- <div class="button">CHI TIẾT</div>
-</a>
-      
-      
-      
-      
-      <!-- Các item khác -->
- <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
-<a href="https://www.zalocash.net" class="item">
-  <div class="image-container">
-    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
-    <div class="discount-label">0% lãi</div>
-  </div>
-    <div class="discount">Khuyến mãi</div>
-  <div class="info-row">
-    <div class="amount">
-      <span>Số Tiền:</span>
-      <span>1-10</span>
-      <span>Triệu</span>
-    </div>
-    <div class="limit">
-      <span>Thủ tục</span>
-      <span>CCCD</span>
-      <span>tối đa</span>
-      <span>3 tháng</span>
-    </div>
-  </div>
-  <div class="period">Tuổi: 20 - 60</div>
-  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
- <div class="button">CHI TIẾT</div>
-</a>
-      
-      
-      
-      
- <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
-<a href="https://www.zalocash.net" class="item">
-  <div class="image-container">
-    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
-    <div class="discount-label">0% lãi</div>
-  </div>
-    <div class="discount">Khuyến mãi</div>
-  <div class="info-row">
-    <div class="amount">
-      <span>Số Tiền:</span>
-      <span>1-10</span>
-      <span>Triệu</span>
-    </div>
-    <div class="limit">
-      <span>Thủ tục</span>
-      <span>CCCD</span>
-      <span>tối đa</span>
-      <span>3 tháng</span>
-    </div>
-  </div>
-  <div class="period">Tuổi: 20 - 60</div>
-  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
- <div class="button">CHI TIẾT</div>
-</a>
-      
-      
-      
-      
- <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
-<a href="https://www.zalocash.net" class="item">
-  <div class="image-container">
-    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
-    <div class="discount-label">0% lãi</div>
-  </div>
-    <div class="discount">Khuyến mãi</div>
+    function saveDS() {
+      localStorage.setItem('DS_HKD', JSON.stringify(ds));
+    }
 
-  <div class="info-row">
-    <div class="amount">
-      <span>Số Tiền:</span>
-      <span>1-10</span>
-      <span>Triệu</span>
-    </div>
-    <div class="limit">
-      <span>Thủ tục</span>
-      <span>CCCD</span>
-      <span>tối đa</span>
-      <span>3 tháng</span>
-    </div>
-  </div>
-  <div class="period">Tuổi: 20 - 60</div>
-  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
- <div class="button">CHI TIẾT</div>
-</a>
-      
-      
-      
-      
+    function renderDanhSach() {
+      const ul = document.getElementById('hkdList');
+      ul.innerHTML = '';
+      ds.forEach(h => {
+        const li = document.createElement('li');
+        li.textContent = h.ten;
+        li.onclick = () => {
+          curHKD = h;
+          renderChiTiet();
+        };
+        ul.appendChild(li);
+      });
+    }
 
-      <!-- Thêm các item khác ở đây -->
- <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
-<a href="https://www.zalocash.net" class="item">
-  <div class="image-container">
-    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
-    <div class="discount-label">0% lãi</div>
-  </div>
-    <div class="discount">Khuyến mãi</div>
-  <div class="info-row">
-    <div class="amount">
-      <span>Số Tiền:</span>
-      <span>1-10</span>
-      <span>Triệu</span>
-    </div>
-    <div class="limit">
-      <span>Thủ tục</span>
-      <span>CCCD</span>
-      <span>tối đa</span>
-      <span>3 tháng</span>
-    </div>
-  </div>
-  <div class="period">Tuổi: 20 - 60</div>
-  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
- <div class="button">CHI TIẾT</div>
-</a>
-      
-      
-      
-      
-      <!-- Các item khác -->
- <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
-<a href="https://www.zalocash.net" class="item">
-  <div class="image-container">
-    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
-    <div class="discount-label">0% lãi</div>
-  </div>
-    <div class="discount">Khuyến mãi</div>
-  <div class="info-row">
-    <div class="amount">
-      <span>Số Tiền:</span>
-      <span>1-10</span>
-      <span>Triệu</span>
-    </div>
-    <div class="limit">
-      <span>Thủ tục</span>
-      <span>CCCD</span>
-      <span>tối đa</span>
-      <span>3 tháng</span>
-    </div>
-  </div>
-  <div class="period">Tuổi: 20 - 60</div>
-  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
- <div class="button">CHI TIẾT</div>
-</a>
-      
-      
-      
-      
- <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
-<a href="https://www.zalocash.net" class="item">
-  <div class="image-container">
-    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
-    <div class="discount-label">0% lãi</div>
-  </div>
-    <div class="discount">Khuyến mãi</div>
-  <div class="info-row">
-    <div class="amount">
-      <span>Số Tiền:</span>
-      <span>1-10</span>
-      <span>Triệu</span>
-    </div>
-    <div class="limit">
-      <span>Thủ tục</span>
-      <span>CCCD</span>
-      <span>tối đa</span>
-      <span>3 tháng</span>
-    </div>
-  </div>
-  <div class="period">Tuổi: 20 - 60</div>
-  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
- <div class="button">CHI TIẾT</div>
-</a>
+    function renderChiTiet() {
+      if (!curHKD) return;
+      document.getElementById('thongTinHKD').innerHTML = `<h3>📌 ${curHKD.ten}</h3>`;
+      let html = `<table>
+        <tr><th>Tên hàng</th><th>ĐVT</th><th>SL</th><th>Giá</th><th>Nhà phân phối</th><th>Tổng tiền</th></tr>`;
+      let tongSL = 0, tongTien = 0;
+      curHKD.hang.forEach(h => {
+        const tt = h.sl * h.gia;
+        tongSL += h.sl;
+        tongTien += tt;
+        html += `<tr>
+          <td>${h.ten}</td>
+          <td>${h.dvt}</td>
+          <td>${h.sl}</td>
+          <td>${h.gia.toLocaleString()}</td>
+          <td>${h.npp}</td>
+          <td>${tt.toLocaleString()}</td>
+        </tr>`;
+      });
+      html += `</table>`;
+      html += `<div class="total">Tổng SL: ${tongSL} | Tổng tiền: ${tongTien.toLocaleString()} đ</div>`;
+      document.getElementById('bangHang').innerHTML = html;
+    }
 
+    async function xuLyPDF() {
+      const file = document.getElementById('pdfFile').files[0];
+      if (!file) return alert('Chọn file PDF!');
+      const buffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        fullText += content.items.map(i => i.str).join(' ') + '\\n';
+      }
+      const { hkd, npp, hang } = parseTableData(fullText);
+      if (!hkd || hang.length === 0) return alert("Không tìm được thông tin hóa đơn!");
 
-    </div>
-  </div>
+      let hkdObj = ds.find(h => h.ten === hkd);
+      if (!hkdObj) {
+        hkdObj = { ten: hkd, hang: [] };
+        ds.push(hkdObj);
+      }
+      curHKD = hkdObj;
+
+      hang.forEach(item => {
+        const existing = hkdObj.hang.find(h => h.ten === item.ten && h.npp === item.npp);
+        if (existing) {
+          existing.sl += item.sl;
+          existing.thanhtien += item.thanhtien;
+        } else {
+          hkdObj.hang.push(item);
+        }
+      });
+
+      saveDS();
+      renderDanhSach();
+      renderChiTiet();
+      alert("✅ Đã trích xuất hóa đơn cho: " + hkd);
+    }
+
+    function parseTableData(fullText) {
+      const lines = fullText.split('\\n').map(l => l.trim()).filter(Boolean);
+      const results = [];
+
+      const npp = (fullText.match(/Tên người bán\\s*[:\\-]?\\s*(.+)/i) || [])[1]?.trim() || 'Không rõ';
+      const hkd = (fullText.match(/Tên người mua\\s*[:\\-]?\\s*(.+)/i) || [])[1]?.trim() || 'Chưa rõ';
+
+      for (let i = 0; i < lines.length - 1; i++) {
+        if (/^\\d+\\s+Hàng hóa, dịch vụ/i.test(lines[i])) {
+          const row = lines[i + 1];
+
+          const regex = /(Chai|Túi|Dây|Thùng|Lốc|Hộp|Kg|Gói)\\s+(\\d+)\\s+([\\d.,]+)\\s+\\d+%\\s+([\\d.,]+)/i;
+          const m = row.match(regex);
+          if (m) {
+            const dvt = m[1];
+            const sl = parseInt(m[2]);
+            const gia = parseFloat(m[3].replace(/[.,]/g, ''));
+            const tt = parseFloat(m[4].replace(/[.,]/g, ''));
+            const ten = row.split(dvt)[0].trim();
+
+            results.push({ ten, dvt, sl, gia, thanhtien: tt, npp });
+          }
+        }
+      }
+
+      return { hkd, npp, hang: results };
+    }
+
+    renderDanhSach();
+  </script>
 </body>
 </html>
-
