@@ -2,10 +2,10 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <title>Trích xuất TXT hóa đơn</title>
+  <title>Trích xuất hóa đơn TXT</title>
   <style>
-    body { font-family: Arial; margin: 0; padding: 20px; }
-    input, button { margin: 10px 0; padding: 8px; font-size: 14px; }
+    body { font-family: Arial; padding: 20px; }
+    input, button { margin: 10px 0; padding: 8px; }
     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     th, td { border: 1px solid #ccc; padding: 6px; }
     .total { margin-top: 10px; font-weight: bold; }
@@ -13,7 +13,7 @@
 </head>
 <body>
 
-  <h2>📂 Chọn file TXT từ hóa đơn</h2>
+  <h2>📄 Chọn file TXT hóa đơn</h2>
   <input type="file" id="txtFile" accept=".txt" />
   <button onclick="xuLyTXT()">📥 Xử lý file TXT</button>
 
@@ -21,8 +21,6 @@
   <div id="bangHang"></div>
 
   <script>
-    let currentHKD = null;
-
     async function xuLyTXT() {
       const file = document.getElementById('txtFile').files[0];
       if (!file) return alert("Chọn file .txt");
@@ -30,8 +28,7 @@
       const { hkd, npp, hang } = parseTextData(text);
       if (!hkd || hang.length === 0) return alert("Không trích được dữ liệu");
 
-      currentHKD = { ten: hkd, hang };
-      renderChiTiet(hkd, hang);
+      renderChiTiet(hkd, npp, hang);
     }
 
     function parseTextData(text) {
@@ -41,16 +38,17 @@
       const result = [];
 
       for (let i = 0; i < lines.length - 1; i++) {
-        if (/^\d+\s+Hàng hóa, dịch vụ/i.test(lines[i])) {
-          const row = lines[i + 1];
+        const line1 = lines[i];
+        const line2 = lines[i + 1];
+        if (/^\d+\s+Hàng hóa, dịch vụ/i.test(line1)) {
           const regex = /(Chai|Thùng|Túi|Kg|Gói|Hộp)\s+(\d+)\s+([\d.,]+)\s+\d+%?\s+([\d.,]+)/i;
-          const m = row.match(regex);
+          const m = line2.match(regex);
           if (m) {
             const dvt = m[1];
             const sl = parseInt(m[2]);
             const gia = parseFloat(m[3].replace(/[.,]/g, ''));
             const tt = parseFloat(m[4].replace(/[.,]/g, ''));
-            const ten = row.split(dvt)[0].trim();
+            const ten = line2.split(dvt)[0].trim();
             result.push({ ten, dvt, sl, gia, thanhtien: tt, npp });
           }
         }
@@ -59,10 +57,10 @@
       return { hkd, npp, hang: result };
     }
 
-    function renderChiTiet(ten, dsHang) {
-      document.getElementById('thongTinHKD').innerHTML = `<h3>📌 ${ten}</h3>`;
+    function renderChiTiet(hkd, npp, dsHang) {
+      document.getElementById('thongTinHKD').innerHTML = `<h3>📌 Hộ KD: ${hkd} | Nhà phân phối: ${npp}</h3>`;
       let html = `<table>
-        <tr><th>Tên hàng</th><th>ĐVT</th><th>SL</th><th>Đơn giá</th><th>Nhà phân phối</th><th>Tổng tiền</th></tr>`;
+        <tr><th>Tên hàng</th><th>ĐVT</th><th>SL</th><th>Đơn giá</th><th>Tổng tiền</th><th>Nhà phân phối</th></tr>`;
       let tongSL = 0, tongTien = 0;
       dsHang.forEach(h => {
         const tt = h.sl * h.gia;
@@ -73,8 +71,8 @@
           <td>${h.dvt}</td>
           <td>${h.sl}</td>
           <td>${h.gia.toLocaleString()}</td>
-          <td>${h.npp}</td>
           <td>${tt.toLocaleString()}</td>
+          <td>${h.npp}</td>
         </tr>`;
       });
       html += `</table><div class="total">Tổng SL: ${tongSL} | Tổng tiền: ${tongTien.toLocaleString()} đ</div>`;
