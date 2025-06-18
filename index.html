@@ -1,163 +1,44 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <title>OCR PDF - Trích xuất bảng hàng hoá</title>
-  <style>
-    body { font-family: Arial; margin: 20px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 15px; }
-    th, td { border: 1px solid #ccc; padding: 6px; text-align: left; font-size: 13px; }
-    input[type="number"] { width: 60px; }
-    input[type="text"] { width: 100%; }
-    .center { text-align: center; }
-    #status { margin-top: 10px; font-weight: bold; color: #006400; }
-    button { margin-top: 10px; margin-right: 10px; }
-    .btn-small { padding: 2px 6px; font-size: 11px; }
-  </style>
-</head>
-<body>
+import * as pdfjsLib from 'pdfjs-dist/webpack';
 
-<h3>📄 OCR PDF ➜ Trích xuất bảng hàng hóa</h3>
-<input type="file" id="pdfInput" accept="application/pdf">
-<button id="processBtn" disabled>🚀 Xử lý OCR</button>
-<div id="status">⏳ Chưa xử lý</div>
-<div id="output"></div>
+async function extractTableFromPDF(file) {
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  const page = await pdf.getPage(1);
+  const content = await page.getTextContent();
 
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.1/dist/tesseract.min.js"></script>
-
-<script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
-
-let selectedFile = null;
-
-function removeVietnamese(str) {
-  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
-}
-
-function updateTotals() {
-  let totalQty = 0, totalAmt = 0;
-  const rows = document.querySelectorAll("#itemTable tbody tr");
-  rows.forEach((row, index) => {
-    row.querySelector("td").innerText = index + 1;
-    const qty = parseFloat(row.querySelector(".sl")?.value) || 0;
-    const price = parseFloat(row.querySelector(".dg")?.value) || 0;
-    const money = qty * price;
-    row.querySelector(".tt").value = money.toFixed(0);
-    totalQty += qty;
-    totalAmt += money;
+  // Gom chữ theo tọa độ y
+  const lines = {};
+  content.items.forEach(item => {
+    const y = Math.floor(item.transform[5]); // Tọa độ Y
+    const x = item.transform[4];
+    const str = item.str.trim();
+    if (!lines[y]) lines[y] = [];
+    lines[y].push({ x, str });
   });
-  document.getElementById("totalQty").innerText = totalQty;
-  document.getElementById("totalAmt").innerText = totalAmt.toLocaleString();
-}
 
-function addRow(data = { ten: '', dvt: '', sl: 0, dg: 0 }) {
-  const table = document.querySelector("#itemTable tbody");
-  const newRow = document.createElement("tr");
-  newRow.innerHTML = `
-    <td class="center">#</td>
-    <td><input type="text" value="${data.ten}"></td>
-    <td><input type="text" value="${data.dvt}"></td>
-    <td><input class="sl" type="number" value="${data.sl}" oninput="updateTotals()"></td>
-    <td><input class="dg" type="number" value="${data.dg}" oninput="updateTotals()"></td>
-    <td><input class="tt" type="number" value="0" readonly></td>
-    <td class="center"><button class="btn-small" onclick="this.closest('tr').remove(); updateTotals()">❌</button></td>
-  `;
-  table.appendChild(newRow);
-  updateTotals();
-}
-
-document.getElementById('pdfInput').addEventListener('change', (e) => {
-  selectedFile = e.target.files[0];
-  const status = document.getElementById('status');
-  if (selectedFile) {
-    status.innerText = '📎 Đã chọn file: ' + selectedFile.name;
-    document.getElementById('processBtn').disabled = false;
-  } else {
-    status.innerText = '⚠️ Chưa chọn file hợp lệ';
-    document.getElementById('processBtn').disabled = true;
-  }
-});
-
-document.getElementById('processBtn').addEventListener('click', async () => {
-  if (!selectedFile) return;
-
-  const status = document.getElementById('status');
-  const output = document.getElementById('output');
-  output.innerHTML = '';
-  status.innerText = '🔄 Đang xử lý PDF...';
-  document.getElementById('processBtn').disabled = true;
-
-  try {
-    const arrayBuffer = await selectedFile.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const page = await pdf.getPage(1);
-    const viewport = page.getViewport({ scale: 2.0 });
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-
-    await page.render({ canvasContext: ctx, viewport }).promise;
-    const image = canvas.toDataURL();
-    status.innerText = '🔍 OCR đang chạy...';
-
-    const result = await Tesseract.recognize(image, 'vie', {
-      logger: m => console.log(m)
+  // Duyệt từng dòng, sắp theo X (trái -> phải)
+  const parsedLines = Object.entries(lines)
+    .sort((a, b) => b[0] - a[0]) // Y: từ trên xuống
+    .map(([y, words]) => {
+      return words.sort((a, b) => a.x - b.x).map(w => w.str).join(' ');
     });
 
-    let text = removeVietnamese(result.data.text);
-    const lines = text.split('\n').map(line => line.trim());
-    const items = [];
+  // Tìm các dòng hàng hóa (có STT + số lượng + đơn giá...)
+  const tableRows = parsedLines.filter(line => /^\d+\s+.+\d+[\.,]\d+/.test(line));
 
-    for (const line of lines) {
-      if (!/^\d+ /.test(line)) continue;
-      if (!/(Chai|Tui|Day|Hop|Thung|Goi|Kg|ml|l|lit)/i.test(line)) continue;
+  // Parse từng dòng thành dữ liệu bảng
+  const result = tableRows.map(line => {
+    const match = line.match(/^(\d+)\s+(.*?)\s+([A-Za-z]+)\s+(\d+)\s+([\d.,]+)\s+.*?([\d.,]+)$/);
+    if (!match) return null;
+    return {
+      stt: match[1],
+      ten: match[2],
+      dvt: match[3],
+      sl: match[4],
+      dg: match[5],
+      tt: match[6]
+    };
+  }).filter(Boolean);
 
-      const match = line.match(/^(\d+)\s+(.*)\s+(Chai|Tui|Day|Hop|Tep|Kg|ml|l|lit)\s+(\d+)\s+([\d.,]+)\s+[\d%]+\s+([\d.,]+)/i);
-      if (!match) continue;
-
-      items.push({
-        stt: match[1],
-        ten: match[2].trim(),
-        dvt: match[3],
-        sl: match[4],
-        dg: match[5].replace(/\./g, '').replace(',', '.'),
-      });
-    }
-
-    let html = `
-      <table id="itemTable">
-        <thead>
-          <tr>
-            <th>STT</th><th>Tên hàng hóa dịch vụ</th><th>ĐVT</th>
-            <th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th><th></th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-        <tfoot>
-          <tr>
-            <td colspan="3"><b>Tổng</b></td>
-            <td id="totalQty" class="center">0</td>
-            <td></td>
-            <td id="totalAmt" class="center">0</td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
-      <button onclick="addRow()">➕ Thêm hàng hóa</button>
-    `;
-    output.innerHTML = html;
-
-    items.forEach(item => addRow(item));
-    status.innerText = `✅ Đã xử lý xong. Trích được ${items.length} dòng hàng hóa.`;
-  } catch (error) {
-    status.innerText = '❌ Lỗi xử lý: ' + error.message;
-  }
-
-  document.getElementById('processBtn').disabled = false;
-});
-</script>
-
-</body>
-</html>
+  return result;
+}
