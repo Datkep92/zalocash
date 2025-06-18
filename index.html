@@ -2,17 +2,21 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>OCR PDF - Trích lọc dữ liệu</title>
+  <title>OCR PDF - Trích lọc bảng hàng hóa</title>
   <style>
-    body { font-family: Arial; padding: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #999; padding: 6px; text-align: left; font-size: 13px; }
-    #output { white-space: pre-wrap; background: #f7f7f7; margin-top: 10px; }
+    body { font-family: Arial; margin: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: left; font-size: 13px; }
+    input[type="number"] { width: 60px; }
+    input[type="text"] { width: 100%; }
+    .center { text-align: center; }
+    #status { margin-top: 10px; color: green; }
+    button { margin-top: 10px; }
   </style>
 </head>
 <body>
 
-<h3>📄 OCR PDF ➜ Trích xuất dữ liệu bảng kê</h3>
+<h3>📄 OCR PDF ➜ Trích xuất bảng hàng hóa</h3>
 <input type="file" id="pdfInput" accept="application/pdf">
 <div id="status">Chưa xử lý</div>
 <div id="output"></div>
@@ -23,9 +27,29 @@
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
 
-// Hàm bỏ dấu tiếng Việt
 function removeVietnamese(str) {
-  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/Đ/g, 'D').replace(/đ/g, 'd');
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
+}
+
+// Tạo ô input
+function inputCell(type, value, onchange = '') {
+  return `<input type="${type}" value="${value}" oninput="${onchange}" />`;
+}
+
+// Cập nhật tổng
+function updateTotals() {
+  let totalQty = 0, totalAmt = 0;
+  document.querySelectorAll("#itemTable tbody tr").forEach(row => {
+    const qty = parseFloat(row.querySelector(".sl")?.value) || 0;
+    const price = parseFloat(row.querySelector(".dg")?.value) || 0;
+    const money = qty * price;
+    row.querySelector(".tt")?.setAttribute("value", money.toFixed(0));
+    row.querySelector(".tt")?.value = money.toFixed(0);
+    totalQty += qty;
+    totalAmt += money;
+  });
+  document.getElementById("totalQty").innerText = totalQty;
+  document.getElementById("totalAmt").innerText = totalAmt.toLocaleString();
 }
 
 document.getElementById('pdfInput').addEventListener('change', async (e) => {
@@ -41,16 +65,15 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const page = await pdf.getPage(1);
   const viewport = page.getViewport({ scale: 2.0 });
-
   const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d');
   canvas.width = viewport.width;
   canvas.height = viewport.height;
 
-  await page.render({ canvasContext: context, viewport }).promise;
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  const image = canvas.toDataURL();
   status.innerText = '🔍 OCR đang chạy...';
 
-  const image = canvas.toDataURL();
   const result = await Tesseract.recognize(image, 'vie', {
     logger: m => console.log(m)
   });
@@ -58,54 +81,77 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
   let text = removeVietnamese(result.data.text);
   status.innerText = '✅ OCR hoàn tất';
 
-  // Trích xuất trường cụ thể
-  const getField = (label, text) => {
-    const regex = new RegExp(label + ':(.*)', 'i');
-    const match = text.match(regex);
-    return match ? match[1].trim() : '';
-  };
+  const lines = text.split('\n').map(line => line.trim());
+  const items = [];
 
-  const NPP = getField("Ten nguoi ban", text);
-  const HKD = getField("Ten nguoi mua", text);
+  for (const line of lines) {
+    if (!/^\d+ /.test(line)) continue; // bỏ dòng không bắt đầu bằng số
+    if (!/(Chai|Tui|Day|Hop|Thung|Goi|Can|Goi|Cai|Bo|Thung|Tep|Kg|ml|l|lit)/i.test(line)) continue; // lọc đơn vị
 
-  // Tách bảng kê hàng hoá (dòng bắt đầu bằng số thứ tự, ví dụ: 1 ...)
-  const tableRows = text.split('\n').filter(line => /^\d+\s/.test(line));
+    const match = line.match(/^(\d+)\s+(.*)\s+(Chai|Tui|Day|Hop|Tep|Kg|ml|l|lit)\s+(\d+)\s+([\d.,]+)\s+[\d%]+\s+([\d.,]+)/i);
+    if (!match) continue;
 
-  // Parse từng dòng sản phẩm
-  const items = tableRows.map(row => {
-    const parts = row.trim().split(/\s{2,}|\t+/); // tách theo nhiều khoảng trắng/tab
-    const nameMatch = row.match(/[A-Z0-9].+\(.*\)/i) || row.match(/[A-Z0-9].+/i);
-    const name = nameMatch ? nameMatch[0] : 'Không rõ';
-    const slMatch = row.match(/\b\d{1,4}\b/g); // tìm số đơn giản
-    const quantity = slMatch ? slMatch[0] : 1;
-    return {
-      ten: name,
-      soluong: quantity,
-      ton: quantity
-    };
-  });
+    items.push({
+      stt: match[1],
+      ten: match[2].trim(),
+      dvt: match[3],
+      sl: match[4],
+      dg: match[5].replace(/\./g, '').replace(',', '.'),
+      tt: match[6].replace(/\./g, '').replace(',', '.')
+    });
+  }
 
-  // Xuất HTML
+  // Tạo bảng HTML
   let html = `
-    <p><b>NPP:</b> ${NPP}</p>
-    <p><b>HKD:</b> ${HKD}</p>
-    <table>
-      <thead><tr><th>STT</th><th>Tên hàng hóa</th><th>Số lượng</th><th>Tồn</th></tr></thead>
+    <table id="itemTable">
+      <thead>
+        <tr>
+          <th>STT</th><th>Tên hàng hóa dịch vụ</th><th>ĐVT</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th>
+        </tr>
+      </thead>
       <tbody>
-        ${items.map((item, i) => `
+        ${items.map(item => `
           <tr>
-            <td>${i + 1}</td>
-            <td>${item.ten}</td>
-            <td>${item.soluong}</td>
-            <td>${item.ton}</td>
+            <td class="center">${item.stt}</td>
+            <td><input type="text" value="${item.ten}"></td>
+            <td><input type="text" value="${item.dvt}"></td>
+            <td><input class="sl" type="number" value="${item.sl}" oninput="updateTotals()"></td>
+            <td><input class="dg" type="number" value="${item.dg}" oninput="updateTotals()"></td>
+            <td><input class="tt" type="number" value="${item.tt}" readonly></td>
           </tr>
         `).join('')}
       </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3"><b>Tổng</b></td>
+          <td id="totalQty" class="center">0</td>
+          <td></td>
+          <td id="totalAmt" class="center">0</td>
+        </tr>
+      </tfoot>
     </table>
+
+    <button onclick="addRow()">➕ Thêm hàng hóa</button>
   `;
 
   output.innerHTML = html;
+  updateTotals();
 });
+
+function addRow() {
+  const table = document.querySelector("#itemTable tbody");
+  const newRow = document.createElement("tr");
+  newRow.innerHTML = `
+    <td class="center">#</td>
+    <td><input type="text" value=""></td>
+    <td><input type="text" value=""></td>
+    <td><input class="sl" type="number" value="0" oninput="updateTotals()"></td>
+    <td><input class="dg" type="number" value="0" oninput="updateTotals()"></td>
+    <td><input class="tt" type="number" value="0" readonly></td>
+  `;
+  table.appendChild(newRow);
+  updateTotals();
+}
 </script>
 
 </body>
