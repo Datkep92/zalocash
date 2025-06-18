@@ -2,10 +2,10 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>OCR lọc hàng hóa có DVT</title>
+  <title>OCR tất cả dòng có số lượng</title>
   <style>
     body { font-family: Arial; padding: 20px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
     th, td { border: 1px solid #aaa; padding: 6px; font-size: 13px; }
     input[type="text"], input[type="number"] { width: 100%; box-sizing: border-box; }
     .center { text-align: center; }
@@ -14,7 +14,7 @@
 </head>
 <body>
 
-<h3>📄 OCR PDF ➜ Lọc dòng chứa đơn vị tính</h3>
+<h3>📄 OCR PDF ➜ Lấy mọi dòng có số lượng</h3>
 <input type="file" id="pdfInput" accept="application/pdf">
 <div id="status">⏳ Chưa xử lý</div>
 <div id="output"></div>
@@ -33,7 +33,7 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
   output.innerHTML = '';
   status.innerText = '📥 Đang đọc PDF...';
 
-  // Render PDF trang đầu thành ảnh
+  // Render ảnh từ trang đầu PDF
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const page = await pdf.getPage(1);
@@ -45,41 +45,40 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
   await page.render({ canvasContext: ctx, viewport }).promise;
 
   const image = canvas.toDataURL();
-
   status.innerText = '🔍 Đang OCR...';
 
   const result = await Tesseract.recognize(image, 'vie', {
     logger: m => console.log(m)
   });
 
-  const text = result.data.text;
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const dvtRegex = /(Chai|Tui|Day|Hop|Thung|Kg|ml|l)/i;
+  const lines = result.data.text.split('\n').map(l => l.trim()).filter(Boolean);
 
-  const products = [];
+  // Lọc dòng có số lượng (ít nhất 1 số nguyên)
+  const hasNumber = /\b\d+\b/;
+  const filtered = lines.filter(line => hasNumber.test(line));
 
-  lines.forEach(line => {
-    if (!dvtRegex.test(line)) return;
-    const regex = /^(.*?)\s+(Chai|Tui|Day|Hop|Thung|Kg|ml|l)\s+(\d+)\s+([\d.,]+)\s+\d+%?\s+([\d.,]+)/i;
-    const match = line.match(regex);
-    if (match) {
-      const [_, ten, dvt, sl, dg, tt] = match;
-      products.push({
-        ten: ten.trim(),
-        dvt: dvt,
-        sl: parseInt(sl),
-        dg: parseFloat(dg.replace(/\./g, '').replace(',', '.')),
-        tt: parseFloat(tt.replace(/\./g, '').replace(',', '.'))
-      });
-    }
+  // Tách thành bảng
+  const products = filtered.map((line, index) => {
+    // Tách tên, DVT, số lượng, đơn giá, thành tiền (dự đoán theo vị trí)
+    const parts = line.split(/\s+/);
+    const numbers = parts.filter(p => /^[\d.,]+$/.test(p));
+    const ten = parts.slice(0, parts.length - numbers.length).join(' ');
+    const dvtGuess = parts.find(p => /(Chai|Tui|Day|Kg|Hop|Thung|ml|l)/i.test(p)) || '';
+    const sl = parseInt(numbers[0] || 0);
+    const dg = parseFloat((numbers[1] || '0').replace(/\./g, '').replace(',', '.'));
+    const tt = parseFloat((numbers[2] || '0').replace(/\./g, '').replace(',', '.'));
+
+    return {
+      stt: index + 1,
+      ten: ten || line,
+      dvt: dvtGuess,
+      sl: sl || 0,
+      dg: dg || 0,
+      tt: tt || 0
+    };
   });
 
-  if (products.length === 0) {
-    status.innerText = '⚠️ Không tìm thấy dòng có DVT phù hợp';
-    return;
-  }
-
-  // Tạo bảng HTML
+  // Hiển thị HTML
   let html = `
     <table id="itemTable">
       <thead>
@@ -89,9 +88,9 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
         </tr>
       </thead>
       <tbody>
-        ${products.map((p, i) => `
+        ${products.map(p => `
           <tr>
-            <td class="center">${i + 1}</td>
+            <td class="center">${p.stt}</td>
             <td><input type="text" value="${p.ten}"></td>
             <td><input type="text" value="${p.dvt}"></td>
             <td><input class="sl" type="number" value="${p.sl}" oninput="updateTotals()"></td>
@@ -113,10 +112,9 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
     </table>
     <button onclick="addRow()">➕ Thêm hàng hoá</button>
   `;
-
   output.innerHTML = html;
   updateTotals();
-  status.innerText = `✅ Đã nhận ${products.length} dòng có DVT từ OCR`;
+  status.innerText = `✅ Đã lọc ${products.length} dòng có số lượng`;
 });
 
 function updateTotals() {
