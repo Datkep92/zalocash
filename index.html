@@ -1,57 +1,110 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>OCR PDF to Text</title>
+  <title>OCR PDF - Trích lọc dữ liệu</title>
   <style>
-    body { font-family: sans-serif; margin: 20px; }
-    #output { white-space: pre-wrap; background: #f0f0f0; padding: 10px; border: 1px solid #ccc; margin-top: 10px; }
-    canvas { display: none; }
+    body { font-family: Arial; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #999; padding: 6px; text-align: left; font-size: 13px; }
+    #output { white-space: pre-wrap; background: #f7f7f7; margin-top: 10px; }
   </style>
 </head>
 <body>
 
-<h3>📄 OCR PDF to Text (Client-side)</h3>
-<input type="file" id="pdfInput" accept="application/pdf" />
+<h3>📄 OCR PDF ➜ Trích xuất dữ liệu bảng kê</h3>
+<input type="file" id="pdfInput" accept="application/pdf">
 <div id="status">Chưa xử lý</div>
-<div id="output">Kết quả OCR sẽ hiển thị ở đây</div>
+<div id="output"></div>
 
-<!-- Thư viện cần thiết -->
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.1/dist/tesseract.min.js"></script>
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
 
-document.getElementById('pdfInput').addEventListener('change', async function(e) {
+// Hàm bỏ dấu tiếng Việt
+function removeVietnamese(str) {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/Đ/g, 'D').replace(/đ/g, 'd');
+}
+
+document.getElementById('pdfInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
 
   const status = document.getElementById('status');
   const output = document.getElementById('output');
-  status.innerText = '📥 Đang tải PDF...';
+  output.innerHTML = '';
+  status.innerText = '🔄 Đang xử lý PDF...';
 
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  const page = await pdf.getPage(1); // chỉ xử lý trang đầu tiên, có thể lặp nếu cần nhiều trang
-
+  const page = await pdf.getPage(1);
   const viewport = page.getViewport({ scale: 2.0 });
+
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
   canvas.width = viewport.width;
   canvas.height = viewport.height;
 
-  await page.render({ canvasContext: context, viewport: viewport }).promise;
+  await page.render({ canvasContext: context, viewport }).promise;
+  status.innerText = '🔍 OCR đang chạy...';
 
-  status.innerText = '🔍 Đang OCR...';
-
-  const dataUrl = canvas.toDataURL(); // chuyển canvas thành ảnh
-  const result = await Tesseract.recognize(dataUrl, 'eng', {
-    logger: m => console.log(m) // log tiến trình
+  const image = canvas.toDataURL();
+  const result = await Tesseract.recognize(image, 'vie', {
+    logger: m => console.log(m)
   });
 
-  status.innerText = '✅ Hoàn tất OCR';
-  output.innerText = result.data.text;
+  let text = removeVietnamese(result.data.text);
+  status.innerText = '✅ OCR hoàn tất';
+
+  // Trích xuất trường cụ thể
+  const getField = (label, text) => {
+    const regex = new RegExp(label + ':(.*)', 'i');
+    const match = text.match(regex);
+    return match ? match[1].trim() : '';
+  };
+
+  const NPP = getField("Ten nguoi ban", text);
+  const HKD = getField("Ten nguoi mua", text);
+
+  // Tách bảng kê hàng hoá (dòng bắt đầu bằng số thứ tự, ví dụ: 1 ...)
+  const tableRows = text.split('\n').filter(line => /^\d+\s/.test(line));
+
+  // Parse từng dòng sản phẩm
+  const items = tableRows.map(row => {
+    const parts = row.trim().split(/\s{2,}|\t+/); // tách theo nhiều khoảng trắng/tab
+    const nameMatch = row.match(/[A-Z0-9].+\(.*\)/i) || row.match(/[A-Z0-9].+/i);
+    const name = nameMatch ? nameMatch[0] : 'Không rõ';
+    const slMatch = row.match(/\b\d{1,4}\b/g); // tìm số đơn giản
+    const quantity = slMatch ? slMatch[0] : 1;
+    return {
+      ten: name,
+      soluong: quantity,
+      ton: quantity
+    };
+  });
+
+  // Xuất HTML
+  let html = `
+    <p><b>NPP:</b> ${NPP}</p>
+    <p><b>HKD:</b> ${HKD}</p>
+    <table>
+      <thead><tr><th>STT</th><th>Tên hàng hóa</th><th>Số lượng</th><th>Tồn</th></tr></thead>
+      <tbody>
+        ${items.map((item, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${item.ten}</td>
+            <td>${item.soluong}</td>
+            <td>${item.ton}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+
+  output.innerHTML = html;
 });
 </script>
 
