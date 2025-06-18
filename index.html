@@ -2,185 +2,60 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>OCR Hóa đơn ➜ Tách bảng kê chính xác</title>
+  <title>Chuyển PDF thành văn bản không dấu</title>
   <style>
     body { font-family: Arial; padding: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th, td { border: 1px solid #aaa; padding: 6px; font-size: 13px; }
-    input[type="text"], input[type="number"] { width: 100%; box-sizing: border-box; }
-    .center { text-align: center; }
-    .btn-small { font-size: 11px; padding: 2px 6px; }
+    textarea { width: 100%; height: 400px; margin-top: 15px; font-size: 14px; white-space: pre-wrap; }
+    #status { margin: 10px 0; color: green; }
   </style>
 </head>
 <body>
 
-<h3>📄 OCR PDF ➜ Lọc bảng kê hàng hóa (chuẩn hóa đơn)</h3>
+<h3>📄 Xuất văn bản từ PDF ➜ Không dấu</h3>
 <input type="file" id="pdfInput" accept="application/pdf">
-<div id="status">⏳ Chưa xử lý</div>
-<div id="output"></div>
+<div id="status">Chưa xử lý</div>
+<textarea id="output" placeholder="Văn bản sẽ hiển thị ở đây..."></textarea>
 
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.1/dist/tesseract.min.js"></script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
 
+// Hàm bỏ dấu tiếng Việt
 function removeVietnamese(str) {
   return str.normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "")
             .replace(/đ/g, "d").replace(/Đ/g, "D");
 }
 
-// 1. Tách bảng kê từ văn bản
-function extractBangKe(rawText) {
-  const lines = removeVietnamese(rawText).split('\n').map(l => l.trim()).filter(Boolean);
-  const result = [];
-
-  let start = false;
-
-  for (const line of lines) {
-    if (!start && /hang hoa.*dich vu/i.test(line)) {
-      start = true;
-      continue;
-    }
-    if (start) {
-      if (/chiet khau|tong tien|nguoi mua hang|thue|tong giam tru/i.test(line)) break;
-      result.push(line);
-    }
-  }
-
-  return result;
-}
-
-// 2. Nhóm dòng thành từng sản phẩm
-function parseBangKe(lines) {
-  const products = [];
-  let tempTen = '';
-
-  for (const line of lines) {
-    const match = line.match(/(Chai|Tui|Túi|Day|Dây|Hop|Kg|ml|l)\s+(\d+)\s+([\d.,]+)\s+\d+%.*?([\d.,]+)$/i);
-    if (match) {
-      const dvt = match[1];
-      const sl = parseInt(match[2]);
-      const dg = parseFloat(match[3].replace(/\./g, '').replace(',', '.'));
-      const tt = parseFloat(match[4].replace(/\./g, '').replace(',', '.'));
-      products.push({ ten: tempTen.trim(), dvt, sl, dg, tt });
-      tempTen = '';
-    } else {
-      tempTen += ' ' + line;
-    }
-  }
-
-  return products;
-}
-
-// ==================== OCR =====================
 document.getElementById('pdfInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
 
   const status = document.getElementById('status');
   const output = document.getElementById('output');
-  output.innerHTML = '';
-  status.innerText = '📥 Đang xử lý PDF...';
+  output.value = '';
+  status.innerText = '📥 Đang đọc file PDF...';
 
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  const page = await pdf.getPage(1);
-  const viewport = page.getViewport({ scale: 2.0 });
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
-  await page.render({ canvasContext: ctx, viewport }).promise;
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
 
-  const image = canvas.toDataURL();
-  status.innerText = '🔍 Đang OCR...';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join('\n');
+      fullText += pageText + '\n\n';
+    }
 
-  const result = await Tesseract.recognize(image, 'vie', {
-    logger: m => console.log(m)
-  });
-
-  const rawText = result.data.text;
-  const lines = extractBangKe(rawText);
-  const products = parseBangKe(lines);
-
-  if (products.length === 0) {
-    status.innerText = '⚠️ Không tìm thấy sản phẩm phù hợp';
-    return;
+    const noAccent = removeVietnamese(fullText.toLowerCase());
+    output.value = noAccent;
+    status.innerText = '✅ Hoàn tất! Đã loại bỏ dấu tiếng Việt.';
+  } catch (err) {
+    console.error(err);
+    status.innerText = '❌ Lỗi khi xử lý PDF.';
   }
-
-  // Hiển thị bảng HTML
-  let html = `
-    <table id="itemTable">
-      <thead>
-        <tr>
-          <th>STT</th><th>Tên hàng hoá</th><th>ĐVT</th>
-          <th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th><th></th>
-        </tr>
-      </thead>
-      <tbody>
-        ${products.map((p, i) => `
-          <tr>
-            <td class="center">${i + 1}</td>
-            <td><input type="text" value="${p.ten}"></td>
-            <td><input type="text" value="${p.dvt}"></td>
-            <td><input class="sl" type="number" value="${p.sl}" oninput="updateTotals()"></td>
-            <td><input class="dg" type="number" value="${p.dg}" oninput="updateTotals()"></td>
-            <td><input class="tt" type="number" value="${p.tt}" readonly></td>
-            <td class="center"><button class="btn-small" onclick="this.closest('tr').remove(); updateTotals()">❌</button></td>
-          </tr>
-        `).join('')}
-      </tbody>
-      <tfoot>
-        <tr>
-          <td colspan="3"><b>Tổng</b></td>
-          <td id="totalQty" class="center">0</td>
-          <td></td>
-          <td id="totalAmt" class="center">0</td>
-          <td></td>
-        </tr>
-      </tfoot>
-    </table>
-    <button onclick="addRow()">➕ Thêm hàng hoá</button>
-  `;
-
-  output.innerHTML = html;
-  updateTotals();
-  status.innerText = `✅ Đã trích ${products.length} sản phẩm từ bảng kê`;
 });
-
-// ============== Tổng & Thêm dòng ==============
-function updateTotals() {
-  const rows = document.querySelectorAll("#itemTable tbody tr");
-  let totalQty = 0, totalAmt = 0;
-  rows.forEach((row, i) => {
-    row.children[0].innerText = i + 1;
-    const sl = parseFloat(row.querySelector(".sl")?.value) || 0;
-    const dg = parseFloat(row.querySelector(".dg")?.value) || 0;
-    const tt = sl * dg;
-    row.querySelector(".tt").value = tt.toFixed(0);
-    totalQty += sl;
-    totalAmt += tt;
-  });
-  document.getElementById("totalQty").innerText = totalQty;
-  document.getElementById("totalAmt").innerText = totalAmt.toLocaleString();
-}
-
-function addRow() {
-  const tbody = document.querySelector("#itemTable tbody");
-  const row = document.createElement("tr");
-  row.innerHTML = `
-    <td class="center">#</td>
-    <td><input type="text" value=""></td>
-    <td><input type="text" value=""></td>
-    <td><input class="sl" type="number" value="0" oninput="updateTotals()"></td>
-    <td><input class="dg" type="number" value="0" oninput="updateTotals()"></td>
-    <td><input class="tt" type="number" value="0" readonly></td>
-    <td class="center"><button class="btn-small" onclick="this.closest('tr').remove(); updateTotals()">❌</button></td>
-  `;
-  tbody.appendChild(row);
-  updateTotals();
-}
 </script>
 
 </body>
