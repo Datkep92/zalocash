@@ -10,7 +10,7 @@
     input[type="number"] { width: 60px; }
     input[type="text"] { width: 100%; }
     .center { text-align: center; }
-    #status { margin-top: 10px; color: green; }
+    #status { margin-top: 10px; font-weight: bold; color: #006400; }
     button { margin-top: 10px; margin-right: 10px; }
     .btn-small { padding: 2px 6px; font-size: 11px; }
   </style>
@@ -20,7 +20,7 @@
 <h3>📄 OCR PDF ➜ Trích xuất bảng hàng hóa</h3>
 <input type="file" id="pdfInput" accept="application/pdf">
 <button id="processBtn" disabled>🚀 Xử lý OCR</button>
-<div id="status">Chưa xử lý</div>
+<div id="status">⏳ Chưa xử lý</div>
 <div id="output"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
@@ -43,8 +43,7 @@ function updateTotals() {
     const qty = parseFloat(row.querySelector(".sl")?.value) || 0;
     const price = parseFloat(row.querySelector(".dg")?.value) || 0;
     const money = qty * price;
-    row.querySelector(".tt")?.setAttribute("value", money.toFixed(0));
-    row.querySelector(".tt")?.value = money.toFixed(0);
+    row.querySelector(".tt").value = money.toFixed(0);
     totalQty += qty;
     totalAmt += money;
   });
@@ -70,8 +69,14 @@ function addRow(data = { ten: '', dvt: '', sl: 0, dg: 0 }) {
 
 document.getElementById('pdfInput').addEventListener('change', (e) => {
   selectedFile = e.target.files[0];
-  document.getElementById('status').innerText = '📎 Đã chọn file: ' + selectedFile.name;
-  document.getElementById('processBtn').disabled = false;
+  const status = document.getElementById('status');
+  if (selectedFile) {
+    status.innerText = '📎 Đã chọn file: ' + selectedFile.name;
+    document.getElementById('processBtn').disabled = false;
+  } else {
+    status.innerText = '⚠️ Chưa chọn file hợp lệ';
+    document.getElementById('processBtn').disabled = true;
+  }
 });
 
 document.getElementById('processBtn').addEventListener('click', async () => {
@@ -83,70 +88,74 @@ document.getElementById('processBtn').addEventListener('click', async () => {
   status.innerText = '🔄 Đang xử lý PDF...';
   document.getElementById('processBtn').disabled = true;
 
-  const arrayBuffer = await selectedFile.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  const page = await pdf.getPage(1);
-  const viewport = page.getViewport({ scale: 2.0 });
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
+  try {
+    const arrayBuffer = await selectedFile.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2.0 });
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
 
-  await page.render({ canvasContext: ctx, viewport }).promise;
-  const image = canvas.toDataURL();
-  status.innerText = '🔍 OCR đang chạy...';
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const image = canvas.toDataURL();
+    status.innerText = '🔍 OCR đang chạy...';
 
-  const result = await Tesseract.recognize(image, 'vie', {
-    logger: m => console.log(m)
-  });
-
-  let text = removeVietnamese(result.data.text);
-  status.innerText = '✅ Hoàn tất OCR';
-  document.getElementById('processBtn').disabled = false;
-
-  const lines = text.split('\n').map(line => line.trim());
-  const items = [];
-
-  for (const line of lines) {
-    if (!/^\d+ /.test(line)) continue;
-    if (!/(Chai|Tui|Day|Hop|Thung|Goi|Kg|ml|l|lit)/i.test(line)) continue;
-
-    const match = line.match(/^(\d+)\s+(.*)\s+(Chai|Tui|Day|Hop|Tep|Kg|ml|l|lit)\s+(\d+)\s+([\d.,]+)\s+[\d%]+\s+([\d.,]+)/i);
-    if (!match) continue;
-
-    items.push({
-      stt: match[1],
-      ten: match[2].trim(),
-      dvt: match[3],
-      sl: match[4],
-      dg: match[5].replace(/\./g, '').replace(',', '.'),
+    const result = await Tesseract.recognize(image, 'vie', {
+      logger: m => console.log(m)
     });
+
+    let text = removeVietnamese(result.data.text);
+    const lines = text.split('\n').map(line => line.trim());
+    const items = [];
+
+    for (const line of lines) {
+      if (!/^\d+ /.test(line)) continue;
+      if (!/(Chai|Tui|Day|Hop|Thung|Goi|Kg|ml|l|lit)/i.test(line)) continue;
+
+      const match = line.match(/^(\d+)\s+(.*)\s+(Chai|Tui|Day|Hop|Tep|Kg|ml|l|lit)\s+(\d+)\s+([\d.,]+)\s+[\d%]+\s+([\d.,]+)/i);
+      if (!match) continue;
+
+      items.push({
+        stt: match[1],
+        ten: match[2].trim(),
+        dvt: match[3],
+        sl: match[4],
+        dg: match[5].replace(/\./g, '').replace(',', '.'),
+      });
+    }
+
+    let html = `
+      <table id="itemTable">
+        <thead>
+          <tr>
+            <th>STT</th><th>Tên hàng hóa dịch vụ</th><th>ĐVT</th>
+            <th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th><th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3"><b>Tổng</b></td>
+            <td id="totalQty" class="center">0</td>
+            <td></td>
+            <td id="totalAmt" class="center">0</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+      <button onclick="addRow()">➕ Thêm hàng hóa</button>
+    `;
+    output.innerHTML = html;
+
+    items.forEach(item => addRow(item));
+    status.innerText = `✅ Đã xử lý xong. Trích được ${items.length} dòng hàng hóa.`;
+  } catch (error) {
+    status.innerText = '❌ Lỗi xử lý: ' + error.message;
   }
 
-  let html = `
-    <table id="itemTable">
-      <thead>
-        <tr>
-          <th>STT</th><th>Tên hàng hóa dịch vụ</th><th>ĐVT</th>
-          <th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th><th></th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-      <tfoot>
-        <tr>
-          <td colspan="3"><b>Tổng</b></td>
-          <td id="totalQty" class="center">0</td>
-          <td></td>
-          <td id="totalAmt" class="center">0</td>
-          <td></td>
-        </tr>
-      </tfoot>
-    </table>
-    <button onclick="addRow()">➕ Thêm hàng hóa</button>
-  `;
-  output.innerHTML = html;
-
-  items.forEach(item => addRow(item));
+  document.getElementById('processBtn').disabled = false;
 });
 </script>
 
