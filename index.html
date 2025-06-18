@@ -2,60 +2,198 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Chuyển PDF thành văn bản không dấu</title>
+  <title>OCR ➜ Tách bảng kê 10 cột</title>
   <style>
     body { font-family: Arial; padding: 20px; }
-    textarea { width: 100%; height: 400px; margin-top: 15px; font-size: 14px; white-space: pre-wrap; }
-    #status { margin: 10px 0; color: green; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ccc; padding: 6px; font-size: 13px; }
+    input[type="text"], input[type="number"] { width: 100%; box-sizing: border-box; }
+    .center { text-align: center; }
+    .btn-small { font-size: 11px; padding: 2px 6px; }
   </style>
 </head>
 <body>
 
-<h3>📄 Xuất văn bản từ PDF ➜ Không dấu</h3>
+<h3>📄 OCR ➜ Tách bảng kê hàng hóa 10 cột</h3>
 <input type="file" id="pdfInput" accept="application/pdf">
 <div id="status">Chưa xử lý</div>
-<textarea id="output" placeholder="Văn bản sẽ hiển thị ở đây..."></textarea>
+<div id="output"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
+
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
 
-// Hàm bỏ dấu tiếng Việt
-function removeVietnamese(str) {
-  return str.normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/đ/g, "d").replace(/Đ/g, "D");
+// Normalize & xóa dấu tiếng Việt
+function normalizeText(text) {
+  return text.normalize("NFD")
+             .replace(/[\u0300-\u036f]/g, "")
+             .replace(/đ/g, "d").replace(/Đ/g, "D")
+             .toLowerCase();
 }
 
+// Tách cụm: từ "hang\nhoa, dich\nvu" → dòng có "% số"
+function extractBangKeChunks(rawText) {
+  const lines = normalizeText(rawText).split('\n').map(l => l.trim()).filter(Boolean);
+
+  const chunks = [];
+  let buffer = [];
+  let inChunk = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Loại bỏ rác
+    if (/chiet|khau|thuong|mai/.test(line)) continue;
+
+    if (!inChunk && line === 'hang' && lines[i + 1] === 'hoa, dich' && lines[i + 2] === 'vu') {
+      inChunk = true;
+      buffer = ['hang hoa dich vu'];
+      i += 2;
+      continue;
+    }
+
+    if (inChunk) {
+      buffer.push(line);
+      if (/%\s*\d{1,3}([.,]\d+)?$/.test(line)) {
+        const lineCombined = buffer.join(' ').replace(/\s+/g, ' ').trim();
+        chunks.push(lineCombined);
+        buffer = [];
+        inChunk = false;
+      }
+    }
+  }
+
+  return chunks;
+}
+
+// Tách thành 10 trường
+function splitToColumns(lines) {
+  return lines.map((line, idx) => {
+    const match = line.match(/^(.*?)\s+(Chai|Tui|Túi|Day|Dây|Hop|Kg|ml|l)\s+(\d+)\s+([\d.,]+)\s+([\d.,]+)\s+(\d+%)\s+([\d.,]+)$/i);
+    if (!match) return null;
+
+    return {
+      stt: idx + 1,
+      tinh_chat: 'hàng hoá, dịch vụ',
+      loai: '',
+      ten: match[1],
+      dvt: match[2],
+      sl: parseInt(match[3]),
+      gia: parseFloat(match[4].replace(/\./g, '').replace(',', '.')),
+      chiet_khau: parseFloat(match[5].replace(/\./g, '').replace(',', '.')),
+      thue: match[6],
+      thanh_tien: parseFloat(match[7].replace(/\./g, '').replace(',', '.'))
+    };
+  }).filter(Boolean);
+}
+
+// Đọc PDF
 document.getElementById('pdfInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-
   const status = document.getElementById('status');
   const output = document.getElementById('output');
-  output.value = '';
-  status.innerText = '📥 Đang đọc file PDF...';
+  output.innerHTML = '';
+  status.innerText = '📥 Đang đọc PDF...';
 
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = '';
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items.map(item => item.str).join('\n');
-      fullText += pageText + '\n\n';
-    }
-
-    const noAccent = removeVietnamese(fullText.toLowerCase());
-    output.value = noAccent;
-    status.innerText = '✅ Hoàn tất! Đã loại bỏ dấu tiếng Việt.';
-  } catch (err) {
-    console.error(err);
-    status.innerText = '❌ Lỗi khi xử lý PDF.';
+  let fullText = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(item => item.str).join('\n');
+    fullText += pageText + '\n';
   }
+
+  const chunks = extractBangKeChunks(fullText);
+  const data = splitToColumns(chunks);
+
+  if (data.length === 0) {
+    status.innerText = '⚠️ Không tách được sản phẩm nào.';
+    return;
+  }
+
+  // Hiển thị bảng
+  let html = `
+    <table id="itemTable">
+      <thead>
+        <tr>
+          <th>STT</th><th>Tính chất</th><th>Loại</th><th>Tên hàng</th><th>ĐVT</th>
+          <th>Số lượng</th><th>Đơn giá</th><th>Chiết khấu</th><th>Thuế suất</th><th>Thành tiền</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.map(p => `
+          <tr>
+            <td class="center">${p.stt}</td>
+            <td><input type="text" value="${p.tinh_chat}"></td>
+            <td><input type="text" value="${p.loai}"></td>
+            <td><input type="text" value="${p.ten}"></td>
+            <td><input type="text" value="${p.dvt}"></td>
+            <td><input class="sl" type="number" value="${p.sl}" oninput="updateTotals()"></td>
+            <td><input class="dg" type="number" value="${p.gia}" oninput="updateTotals()"></td>
+            <td><input type="number" value="${p.chiet_khau}"></td>
+            <td><input type="text" value="${p.thue}"></td>
+            <td><input class="tt" type="number" value="${p.thanh_tien}" readonly></td>
+            <td class="center"><button class="btn-small" onclick="this.closest('tr').remove(); updateTotals()">❌</button></td>
+          </tr>`).join('')}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="5"><b>Tổng</b></td>
+          <td id="totalQty" class="center">0</td>
+          <td></td><td></td><td></td>
+          <td id="totalAmt" class="center">0</td><td></td>
+        </tr>
+      </tfoot>
+    </table>
+    <button onclick="addRow()">➕ Thêm dòng</button>
+  `;
+  output.innerHTML = html;
+  updateTotals();
+  status.innerText = `✅ Đã tách được ${data.length} sản phẩm.`;
 });
+
+// Tổng lại
+function updateTotals() {
+  let totalQty = 0, totalAmt = 0;
+  const rows = document.querySelectorAll('#itemTable tbody tr');
+  rows.forEach((row, i) => {
+    row.children[0].innerText = i + 1;
+    const sl = parseFloat(row.querySelector('.sl')?.value) || 0;
+    const dg = parseFloat(row.querySelector('.dg')?.value) || 0;
+    const tt = sl * dg;
+    row.querySelector('.tt').value = tt.toFixed(0);
+    totalQty += sl;
+    totalAmt += tt;
+  });
+  document.getElementById('totalQty').innerText = totalQty;
+  document.getElementById('totalAmt').innerText = totalAmt.toLocaleString();
+}
+
+// Thêm dòng
+function addRow() {
+  const tbody = document.querySelector('#itemTable tbody');
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td class="center">#</td>
+    <td><input type="text" value=""></td>
+    <td><input type="text" value=""></td>
+    <td><input type="text" value=""></td>
+    <td><input type="text" value=""></td>
+    <td><input class="sl" type="number" value="0" oninput="updateTotals()"></td>
+    <td><input class="dg" type="number" value="0" oninput="updateTotals()"></td>
+    <td><input type="number" value="0"></td>
+    <td><input type="text" value=""></td>
+    <td><input class="tt" type="number" value="0" readonly></td>
+    <td class="center"><button class="btn-small" onclick="this.closest('tr').remove(); updateTotals()">❌</button></td>
+  `;
+  tbody.appendChild(row);
+  updateTotals();
+}
 </script>
 
 </body>
