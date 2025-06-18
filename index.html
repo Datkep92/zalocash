@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>OCR bảng kê chính xác (gộp dòng)</title>
+  <title>OCR lọc tất cả cụm hàng hóa</title>
   <style>
     body { font-family: Arial; padding: 20px; }
     table { border-collapse: collapse; width: 100%; margin-top: 15px; }
@@ -14,7 +14,7 @@
 </head>
 <body>
 
-<h3>📄 OCR ➜ Bảng kê chính xác (gộp dòng nhiều dòng)</h3>
+<h3>📄 OCR PDF ➜ Lọc tất cả cụm “hàng hoá dịch vụ” đến số</h3>
 <input type="file" id="pdfInput" accept="application/pdf">
 <div id="status">⏳ Chưa xử lý</div>
 <div id="output"></div>
@@ -24,6 +24,76 @@
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
 
+// Hàm xử lý loại bỏ dấu tiếng Việt
+function removeVietnamese(str) {
+  return str.normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/đ/g, "d").replace(/Đ/g, "D");
+}
+
+// Lấy tất cả các cụm từ "hang hoa dich vu" → dòng kết thúc bằng số
+function extractAllHoaDonChunks(text) {
+  const lines = removeVietnamese(text.toLowerCase()).split('\n').map(l => l.trim()).filter(Boolean);
+  const chunks = [];
+  let inChunk = false;
+  let currentChunk = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.includes('hang hoa dich vu')) {
+      if (inChunk && currentChunk.length > 0) {
+        chunks.push([...currentChunk]);
+      }
+      inChunk = true;
+      currentChunk = [line];
+    } else if (inChunk) {
+      currentChunk.push(line);
+      if (/\d{1,3}[.,]\d{2,3}$/.test(line)) {
+        chunks.push([...currentChunk]);
+        inChunk = false;
+        currentChunk = [];
+      }
+    }
+  }
+  if (inChunk && currentChunk.length > 0) {
+    chunks.push([...currentChunk]);
+  }
+  return chunks;
+}
+
+// Phân tách từng cụm thành sản phẩm
+function parseSanPhamChunk(chunkLines) {
+  const products = [];
+  let tempTen = '';
+  for (let i = 0; i < chunkLines.length; i++) {
+    const line = chunkLines[i];
+    const match = line.match(/(Chai|Tui|Túi|Kg|Thung|ml|l|hop)\s+(\d+)\s+([\d.,]+).*?([\d.,]+)$/i);
+    if (match) {
+      const dvt = match[1];
+      const sl = parseInt(match[2]);
+      const dg = parseFloat(match[3].replace(/\./g, '').replace(',', '.'));
+      const tt = parseFloat(match[4].replace(/\./g, '').replace(',', '.'));
+      products.push({ ten: tempTen.trim(), dvt, sl, dg, tt });
+      tempTen = '';
+    } else {
+      tempTen += ' ' + line;
+    }
+  }
+  return products;
+}
+
+// Từ toàn bộ OCR → phân tách tất cả sản phẩm
+function extractAllProducts(text) {
+  const chunks = extractAllHoaDonChunks(text);
+  let allProducts = [];
+  for (const chunk of chunks) {
+    const products = parseSanPhamChunk(chunk);
+    allProducts = allProducts.concat(products);
+  }
+  return allProducts;
+}
+
+// ================= OCR xử lý ===================
 document.getElementById('pdfInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -50,41 +120,15 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
     logger: m => console.log(m)
   });
 
-  const lines = result.data.text.split('\n').map(l => l.trim()).filter(Boolean);
-
-  let products = [];
-  let temp = null;
-
-  for (let line of lines) {
-    if (/^\d+\s/.test(line)) {
-      if (temp) products.push(temp); // đẩy sản phẩm cũ
-      temp = {
-        stt: line.match(/^\d+/)[0],
-        ten: line.replace(/^\d+\s+/, ''),
-        dvt: '', sl: 0, dg: 0, tt: 0
-      };
-    } else if (temp) {
-      const match = line.match(/(Chai|Tui|Túi|Kg|Thung|ml|l)\s+(\d+)\s+([\d.,]+).*?([\d.,]+)$/i);
-      if (match) {
-        temp.dvt = match[1];
-        temp.sl = parseInt(match[2]);
-        temp.dg = parseFloat(match[3].replace(/\./g, '').replace(',', '.'));
-        temp.tt = parseFloat(match[4].replace(/\./g, '').replace(',', '.'));
-        products.push(temp);
-        temp = null;
-      } else {
-        temp.ten += ' ' + line;
-      }
-    }
-  }
-  if (temp) products.push(temp);
+  const text = result.data.text;
+  const products = extractAllProducts(text);
 
   if (products.length === 0) {
-    status.innerText = '⚠️ Không tìm thấy dòng hàng hoá hợp lệ';
+    status.innerText = '⚠️ Không tìm thấy dòng hàng hoá phù hợp';
     return;
   }
 
-  // Render bảng HTML
+  // Hiển thị bảng HTML
   let html = `
     <table id="itemTable">
       <thead>
@@ -94,9 +138,9 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
         </tr>
       </thead>
       <tbody>
-        ${products.map(p => `
+        ${products.map((p, i) => `
           <tr>
-            <td class="center">${p.stt}</td>
+            <td class="center">${i + 1}</td>
             <td><input type="text" value="${p.ten}"></td>
             <td><input type="text" value="${p.dvt}"></td>
             <td><input class="sl" type="number" value="${p.sl}" oninput="updateTotals()"></td>
@@ -120,9 +164,10 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
   `;
   output.innerHTML = html;
   updateTotals();
-  status.innerText = `✅ Trích được ${products.length} sản phẩm từ OCR`;
+  status.innerText = `✅ Trích được ${products.length} sản phẩm từ ${extractAllHoaDonChunks(text).length} cụm hàng hoá`;
 });
 
+// ================= Cập nhật & Thêm dòng ===================
 function updateTotals() {
   const rows = document.querySelectorAll("#itemTable tbody tr");
   let totalQty = 0, totalAmt = 0;
