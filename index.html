@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>OCR Kế Toán Cá Nhân Hoá</title>
+  <title>OCR Hóa đơn - Kế toán cá nhân hoá</title>
   <style>
     body { font-family: Arial; padding: 20px; }
     table { border-collapse: collapse; width: 100%; margin-top: 15px; }
@@ -23,18 +23,13 @@
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
 
-// ✅ Loại bỏ dấu tiếng Việt
 function removeVietnamese(str) {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
             .replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
 }
 
-// ✅ Trích cụm sản phẩm từ văn bản gốc
 function extractProductBlocks(text) {
   const lines = removeVietnamese(text).split('\n').map(l => l.trim()).filter(Boolean);
-  const products = [];
-
-  // Tìm dòng bắt đầu là "hang" + "hoa"
   let start = lines.findIndex((_, i) => lines[i] === 'hang' && lines[i + 1] === 'hoa');
   if (start === -1) return [];
 
@@ -42,8 +37,9 @@ function extractProductBlocks(text) {
   const endIndex = filtered.findIndex(l => /(chiet|khau|thuong|mai)/.test(l));
   const finalLines = endIndex >= 0 ? filtered.slice(0, endIndex) : filtered;
 
-  // Gom từng cụm bắt đầu bằng "hang\nhoa"
+  const products = [];
   let chunk = [];
+
   for (let i = 0; i < finalLines.length; i++) {
     const line = finalLines[i];
     if (line === 'hang' && finalLines[i + 1] === 'hoa') {
@@ -54,33 +50,33 @@ function extractProductBlocks(text) {
       chunk.push(line);
     }
   }
+
   if (chunk.length) products.push(chunk.join(' '));
   return products;
 }
 
-// ✅ Phân tích cụm thành các cột sản phẩm
+// ✅ ✅ FIX PHÂN TÍCH DÒNG SẢN PHẨM CHÍNH XÁC
 function parseProductLine(line) {
-  const match = line.match(/^(.*?)\s+(chai|tui|day|hop|kg|ml|l)\s+(\d+)\s+([\d.,]+)\s+(\d+)\s+(\d+%)\s+([\d.,]+)$/i);
-  if (!match) return null;
-  return {
-    ten: match[1].trim(),
-    dvt: match[2],
-    sl: parseInt(match[3]),
-    gia: parseFloat(match[4].replace(/\./g, '').replace(',', '.')),
-    ck: parseFloat(match[5]),
-    thue: match[6],
-    tt: parseFloat(match[7].replace(/\./g, '').replace(',', '.')),
-  };
+  const parts = line.trim().split(/\s+/);
+
+  const tt = parseFloat(parts.pop().replace(/[^\d.,]/g, '').replace(',', '.'));
+  const thue = parts.pop();
+  const ck = parseFloat(parts.pop().replace(/[^\d.,]/g, '').replace(',', '.'));
+  const gia = parseFloat(parts.pop().replace(/[^\d.,]/g, '').replace(',', '.'));
+  const sl = parseInt(parts.pop());
+  const dvt = parts.pop();
+  const ten = parts.join(' ').replace(/^hang hoa /, '').trim();
+
+  return { ten, dvt, sl, gia, ck, thue, tt };
 }
 
-// ✅ Đọc PDF và xử lý
 document.getElementById('pdfInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
   const status = document.getElementById('status');
   const output = document.getElementById('output');
   output.innerHTML = '';
-  status.innerText = '📥 Đang đọc PDF...';
+  status.innerText = '📥 Đang xử lý PDF...';
 
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -100,7 +96,6 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
     return;
   }
 
-  // ✅ Hiển thị bảng HTML
   let html = `
     <table id="itemTable">
       <thead>
@@ -121,8 +116,7 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
             <td><input type="text" value="${p.thue}"></td>
             <td><input class="tt" type="number" value="${p.tt}" readonly></td>
             <td class="center"><button class="btn-small" onclick="this.closest('tr').remove(); updateTotals()">❌</button></td>
-          </tr>
-        `).join('')}
+          </tr>`).join('')}
       </tbody>
       <tfoot>
         <tr>
@@ -136,10 +130,9 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
   `;
   output.innerHTML = html;
   updateTotals();
-  status.innerText = `✅ Trích thành công ${data.length} sản phẩm từ hóa đơn.`;
+  status.innerText = `✅ Đã trích được ${data.length} sản phẩm.`;
 });
 
-// ✅ Cập nhật tổng
 function updateTotals() {
   let totalQty = 0, totalAmt = 0;
   const rows = document.querySelectorAll('#itemTable tbody tr');
@@ -156,7 +149,6 @@ function updateTotals() {
   document.getElementById('totalAmt').innerText = totalAmt.toLocaleString();
 }
 
-// ✅ Thêm hàng
 function addRow() {
   const tbody = document.querySelector('#itemTable tbody');
   const row = document.createElement('tr');
