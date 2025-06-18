@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Quản lý hóa đơn ➜ Phân theo HKD & NPP</title>
+  <title>Trích bảng kê theo HKD + lọc số lượng</title>
   <style>
     body { font-family: Arial; display: flex; padding: 20px; gap: 20px; }
     #left { width: 200px; }
@@ -31,16 +31,14 @@
 
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = 
+pdfjsLib.GlobalWorkerOptions.workerSrc =
   'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
 
-const hkdData = {}; // Lưu theo: { HKD: [array sản phẩm] }
+const hkdData = {}; // { HKD: [sản phẩm] }
 
 function removeVN(str) {
-  return str.normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d").replace(/Đ/g, "D")
-    .toLowerCase();
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
 }
 
 function groupTextByY(items) {
@@ -98,14 +96,19 @@ function extractDataFromBlock(block) {
     const last = parts.slice(-6);
     const name = parts.slice(0, parts.length - 6).join(' ');
 
+    // ✅ LỌC SỐ LƯỢNG
+    const slRaw = last[1].replace(',', '.');
+    const sl = Number(slRaw);
+    if (!Number.isFinite(sl) || sl === 0) continue;
+
     data.push({
       ten: name,
       dvt: last[0],
-      sl: last[1],
-      gia: last[2],
-      ck: last[3],
+      sl: sl,
+      gia: parseFloat(last[2].replace(',', '.')),
+      ck: parseFloat(last[3].replace(',', '.')),
       thue: last[4],
-      tt: last[5],
+      tt: parseFloat(last[5].replace(',', '.')),
       loai: 'Hàng hóa',
       hkd: HKD.replace(/(ten nguoi mua|ho ten nguoi mua hang):?/i, '').trim(),
       npp: NPP.replace(/ten nguoi ban:?/i, '').trim()
