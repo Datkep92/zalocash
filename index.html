@@ -1,44 +1,158 @@
-import * as pdfjsLib from 'pdfjs-dist/webpack';
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Trích bảng hàng hoá từ PDF (tọa độ)</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #aaa; padding: 6px; text-align: left; font-size: 13px; }
+    input[type="number"], input[type="text"] { width: 100%; box-sizing: border-box; }
+    .center { text-align: center; }
+    .btn-small { font-size: 11px; padding: 2px 6px; }
+  </style>
+</head>
+<body>
 
-async function extractTableFromPDF(file) {
-  const buffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+<h3>📄 Trích bảng hàng hoá từ PDF (tọa độ)</h3>
+<input type="file" id="pdfInput" accept="application/pdf" />
+<button id="processBtn" disabled>🚀 Xử lý PDF</button>
+<div id="status">⏳ Chưa xử lý</div>
+<div id="output"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
+
+let selectedFile = null;
+
+document.getElementById('pdfInput').addEventListener('change', (e) => {
+  selectedFile = e.target.files[0];
+  document.getElementById('status').innerText = selectedFile
+    ? '📎 Đã chọn file: ' + selectedFile.name
+    : '⚠️ Chưa chọn file hợp lệ';
+  document.getElementById('processBtn').disabled = !selectedFile;
+});
+
+document.getElementById('processBtn').addEventListener('click', async () => {
+  const status = document.getElementById('status');
+  const output = document.getElementById('output');
+  if (!selectedFile) return;
+
+  status.innerText = '📥 Đang phân tích PDF...';
+  output.innerHTML = '';
+  const arrayBuffer = await selectedFile.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const page = await pdf.getPage(1);
   const content = await page.getTextContent();
 
-  // Gom chữ theo tọa độ y
-  const lines = {};
+  // Gom text theo tọa độ Y
+  const rows = {};
   content.items.forEach(item => {
-    const y = Math.floor(item.transform[5]); // Tọa độ Y
+    const y = Math.floor(item.transform[5]);
     const x = item.transform[4];
     const str = item.str.trim();
-    if (!lines[y]) lines[y] = [];
-    lines[y].push({ x, str });
+    if (!str) return;
+    if (!rows[y]) rows[y] = [];
+    rows[y].push({ x, str });
   });
 
-  // Duyệt từng dòng, sắp theo X (trái -> phải)
-  const parsedLines = Object.entries(lines)
-    .sort((a, b) => b[0] - a[0]) // Y: từ trên xuống
-    .map(([y, words]) => {
-      return words.sort((a, b) => a.x - b.x).map(w => w.str).join(' ');
+  const lines = Object.entries(rows)
+    .sort((a, b) => b[0] - a[0]) // từ trên xuống
+    .map(([y, items]) => {
+      return items.sort((a, b) => a.x - b.x).map(i => i.str).join(' ');
     });
 
-  // Tìm các dòng hàng hóa (có STT + số lượng + đơn giá...)
-  const tableRows = parsedLines.filter(line => /^\d+\s+.+\d+[\.,]\d+/.test(line));
+  // Lọc dòng hàng hóa (có STT và đơn vị tính)
+  const data = lines
+    .filter(l => /^\d+\s+/.test(l) && /(Chai|Tui|Day|Kg|Hop|Thung|ml|l)/i.test(l))
+    .map(l => {
+      const match = l.match(/^(\d+)\s+(.*?)\s+(Chai|Tui|Day|Kg|Hop|Thung|ml|l)\s+(\d+)\s+([\d.,]+).*?([\d.,]+)$/i);
+      if (!match) return null;
+      return {
+        stt: match[1],
+        ten: match[2],
+        dvt: match[3],
+        sl: parseInt(match[4]),
+        dg: parseFloat(match[5].replace(/\./g, '').replace(',', '.')),
+        tt: parseFloat(match[6].replace(/\./g, '').replace(',', '.'))
+      };
+    }).filter(Boolean);
 
-  // Parse từng dòng thành dữ liệu bảng
-  const result = tableRows.map(line => {
-    const match = line.match(/^(\d+)\s+(.*?)\s+([A-Za-z]+)\s+(\d+)\s+([\d.,]+)\s+.*?([\d.,]+)$/);
-    if (!match) return null;
-    return {
-      stt: match[1],
-      ten: match[2],
-      dvt: match[3],
-      sl: match[4],
-      dg: match[5],
-      tt: match[6]
-    };
-  }).filter(Boolean);
+  // Tạo bảng HTML
+  let html = `
+    <table id="itemTable">
+      <thead>
+        <tr>
+          <th>STT</th><th>Tên hàng hoá</th><th>ĐVT</th><th>Số lượng</th>
+          <th>Đơn giá</th><th>Thành tiền</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.map((item, i) => `
+          <tr>
+            <td class="center">${i + 1}</td>
+            <td><input type="text" value="${item.ten}"></td>
+            <td><input type="text" value="${item.dvt}"></td>
+            <td><input class="sl" type="number" value="${item.sl}" oninput="updateTotals()"></td>
+            <td><input class="dg" type="number" value="${item.dg}" oninput="updateTotals()"></td>
+            <td><input class="tt" type="number" value="${item.tt}" readonly></td>
+            <td class="center"><button class="btn-small" onclick="this.closest('tr').remove(); updateTotals()">❌</button></td>
+          </tr>
+        `).join('')}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3"><b>Tổng</b></td>
+          <td id="totalQty" class="center">0</td>
+          <td></td>
+          <td id="totalAmt" class="center">0</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+    <button onclick="addRow()">➕ Thêm hàng hoá</button>
+  `;
 
-  return result;
+  output.innerHTML = html;
+  updateTotals();
+  status.innerText = `✅ Đã trích xuất ${data.length} sản phẩm từ PDF.`;
+});
+
+function updateTotals() {
+  const rows = document.querySelectorAll("#itemTable tbody tr");
+  let totalQty = 0, totalAmt = 0;
+
+  rows.forEach((row, index) => {
+    row.children[0].innerText = index + 1;
+    const sl = parseFloat(row.querySelector(".sl")?.value) || 0;
+    const dg = parseFloat(row.querySelector(".dg")?.value) || 0;
+    const tt = sl * dg;
+    row.querySelector(".tt").value = tt.toFixed(0);
+    totalQty += sl;
+    totalAmt += tt;
+  });
+
+  document.getElementById("totalQty").innerText = totalQty;
+  document.getElementById("totalAmt").innerText = totalAmt.toLocaleString();
 }
+
+function addRow() {
+  const tbody = document.querySelector("#itemTable tbody");
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td class="center">#</td>
+    <td><input type="text" value=""></td>
+    <td><input type="text" value=""></td>
+    <td><input class="sl" type="number" value="0" oninput="updateTotals()"></td>
+    <td><input class="dg" type="number" value="0" oninput="updateTotals()"></td>
+    <td><input class="tt" type="number" value="0" readonly></td>
+    <td class="center"><button class="btn-small" onclick="this.closest('tr').remove(); updateTotals()">❌</button></td>
+  `;
+  tbody.appendChild(row);
+  updateTotals();
+}
+</script>
+
+</body>
+</html>
