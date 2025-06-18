@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>OCR PDF - Trích lọc bảng hàng hóa</title>
+  <title>OCR PDF - Trích xuất bảng hàng hoá</title>
   <style>
     body { font-family: Arial; margin: 20px; }
     table { border-collapse: collapse; width: 100%; margin-top: 15px; }
@@ -11,13 +11,15 @@
     input[type="text"] { width: 100%; }
     .center { text-align: center; }
     #status { margin-top: 10px; color: green; }
-    button { margin-top: 10px; }
+    button { margin-top: 10px; margin-right: 10px; }
+    .btn-small { padding: 2px 6px; font-size: 11px; }
   </style>
 </head>
 <body>
 
 <h3>📄 OCR PDF ➜ Trích xuất bảng hàng hóa</h3>
 <input type="file" id="pdfInput" accept="application/pdf">
+<button id="processBtn" disabled>🚀 Xử lý OCR</button>
 <div id="status">Chưa xử lý</div>
 <div id="output"></div>
 
@@ -27,19 +29,17 @@
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
 
+let selectedFile = null;
+
 function removeVietnamese(str) {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
 }
 
-// Tạo ô input
-function inputCell(type, value, onchange = '') {
-  return `<input type="${type}" value="${value}" oninput="${onchange}" />`;
-}
-
-// Cập nhật tổng
 function updateTotals() {
   let totalQty = 0, totalAmt = 0;
-  document.querySelectorAll("#itemTable tbody tr").forEach(row => {
+  const rows = document.querySelectorAll("#itemTable tbody tr");
+  rows.forEach((row, index) => {
+    row.querySelector("td").innerText = index + 1;
     const qty = parseFloat(row.querySelector(".sl")?.value) || 0;
     const price = parseFloat(row.querySelector(".dg")?.value) || 0;
     const money = qty * price;
@@ -52,16 +52,38 @@ function updateTotals() {
   document.getElementById("totalAmt").innerText = totalAmt.toLocaleString();
 }
 
-document.getElementById('pdfInput').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+function addRow(data = { ten: '', dvt: '', sl: 0, dg: 0 }) {
+  const table = document.querySelector("#itemTable tbody");
+  const newRow = document.createElement("tr");
+  newRow.innerHTML = `
+    <td class="center">#</td>
+    <td><input type="text" value="${data.ten}"></td>
+    <td><input type="text" value="${data.dvt}"></td>
+    <td><input class="sl" type="number" value="${data.sl}" oninput="updateTotals()"></td>
+    <td><input class="dg" type="number" value="${data.dg}" oninput="updateTotals()"></td>
+    <td><input class="tt" type="number" value="0" readonly></td>
+    <td class="center"><button class="btn-small" onclick="this.closest('tr').remove(); updateTotals()">❌</button></td>
+  `;
+  table.appendChild(newRow);
+  updateTotals();
+}
+
+document.getElementById('pdfInput').addEventListener('change', (e) => {
+  selectedFile = e.target.files[0];
+  document.getElementById('status').innerText = '📎 Đã chọn file: ' + selectedFile.name;
+  document.getElementById('processBtn').disabled = false;
+});
+
+document.getElementById('processBtn').addEventListener('click', async () => {
+  if (!selectedFile) return;
 
   const status = document.getElementById('status');
   const output = document.getElementById('output');
   output.innerHTML = '';
   status.innerText = '🔄 Đang xử lý PDF...';
+  document.getElementById('processBtn').disabled = true;
 
-  const arrayBuffer = await file.arrayBuffer();
+  const arrayBuffer = await selectedFile.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const page = await pdf.getPage(1);
   const viewport = page.getViewport({ scale: 2.0 });
@@ -79,14 +101,15 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
   });
 
   let text = removeVietnamese(result.data.text);
-  status.innerText = '✅ OCR hoàn tất';
+  status.innerText = '✅ Hoàn tất OCR';
+  document.getElementById('processBtn').disabled = false;
 
   const lines = text.split('\n').map(line => line.trim());
   const items = [];
 
   for (const line of lines) {
-    if (!/^\d+ /.test(line)) continue; // bỏ dòng không bắt đầu bằng số
-    if (!/(Chai|Tui|Day|Hop|Thung|Goi|Can|Goi|Cai|Bo|Thung|Tep|Kg|ml|l|lit)/i.test(line)) continue; // lọc đơn vị
+    if (!/^\d+ /.test(line)) continue;
+    if (!/(Chai|Tui|Day|Hop|Thung|Goi|Kg|ml|l|lit)/i.test(line)) continue;
 
     const match = line.match(/^(\d+)\s+(.*)\s+(Chai|Tui|Day|Hop|Tep|Kg|ml|l|lit)\s+(\d+)\s+([\d.,]+)\s+[\d%]+\s+([\d.,]+)/i);
     if (!match) continue;
@@ -97,61 +120,34 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
       dvt: match[3],
       sl: match[4],
       dg: match[5].replace(/\./g, '').replace(',', '.'),
-      tt: match[6].replace(/\./g, '').replace(',', '.')
     });
   }
 
-  // Tạo bảng HTML
   let html = `
     <table id="itemTable">
       <thead>
         <tr>
-          <th>STT</th><th>Tên hàng hóa dịch vụ</th><th>ĐVT</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th>
+          <th>STT</th><th>Tên hàng hóa dịch vụ</th><th>ĐVT</th>
+          <th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th><th></th>
         </tr>
       </thead>
-      <tbody>
-        ${items.map(item => `
-          <tr>
-            <td class="center">${item.stt}</td>
-            <td><input type="text" value="${item.ten}"></td>
-            <td><input type="text" value="${item.dvt}"></td>
-            <td><input class="sl" type="number" value="${item.sl}" oninput="updateTotals()"></td>
-            <td><input class="dg" type="number" value="${item.dg}" oninput="updateTotals()"></td>
-            <td><input class="tt" type="number" value="${item.tt}" readonly></td>
-          </tr>
-        `).join('')}
-      </tbody>
+      <tbody></tbody>
       <tfoot>
         <tr>
           <td colspan="3"><b>Tổng</b></td>
           <td id="totalQty" class="center">0</td>
           <td></td>
           <td id="totalAmt" class="center">0</td>
+          <td></td>
         </tr>
       </tfoot>
     </table>
-
     <button onclick="addRow()">➕ Thêm hàng hóa</button>
   `;
-
   output.innerHTML = html;
-  updateTotals();
-});
 
-function addRow() {
-  const table = document.querySelector("#itemTable tbody");
-  const newRow = document.createElement("tr");
-  newRow.innerHTML = `
-    <td class="center">#</td>
-    <td><input type="text" value=""></td>
-    <td><input type="text" value=""></td>
-    <td><input class="sl" type="number" value="0" oninput="updateTotals()"></td>
-    <td><input class="dg" type="number" value="0" oninput="updateTotals()"></td>
-    <td><input class="tt" type="number" value="0" readonly></td>
-  `;
-  table.appendChild(newRow);
-  updateTotals();
-}
+  items.forEach(item => addRow(item));
+});
 </script>
 
 </body>
