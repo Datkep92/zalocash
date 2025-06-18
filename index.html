@@ -2,26 +2,25 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>OCR ➜ Lọc & Gom cụm "hang hoa"</title>
+  <title>OCR ➜ Gom cụm "hang hoa" hiển thị</title>
   <style>
     body { font-family: Arial; padding: 20px; }
-    textarea { width: 100%; height: 400px; white-space: pre-wrap; font-size: 14px; }
-    #status { margin-top: 10px; color: green; }
+    textarea { width: 100%; height: 500px; font-size: 14px; white-space: pre-wrap; }
+    #status { margin: 10px 0; color: green; }
   </style>
 </head>
 <body>
 
-<h3>📄 OCR ➜ Lọc nội dung theo cụm "hang hoa"</h3>
+<h3>📄 OCR PDF ➜ Gom và hiển thị nội dung theo cụm "hang hoa"</h3>
 <input type="file" id="pdfInput" accept="application/pdf">
-<div id="status">Chưa xử lý</div>
-<textarea id="output" placeholder="Văn bản kết quả sẽ hiển thị tại đây..."></textarea>
+<div id="status">⏳ Chưa xử lý</div>
+<textarea id="output" placeholder="Kết quả hiển thị tại đây..."></textarea>
 
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
-
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
 
-// Loại bỏ dấu tiếng Việt và normalize text
+// Bỏ dấu tiếng Việt
 function removeVietnamese(str) {
   return str.normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "")
@@ -29,46 +28,53 @@ function removeVietnamese(str) {
             .toLowerCase();
 }
 
-// Xử lý văn bản theo yêu cầu
-function processText(rawText) {
-  const lines = removeVietnamese(rawText).split('\n').map(l => l.trim()).filter(Boolean);
+// Xử lý và gom cụm từ "hang\nhoa" → loại bỏ rác
+function extractChunks(rawText) {
+  const lines = removeVietnamese(rawText)
+    .split('\n').map(l => l.trim()).filter(Boolean);
 
-  // 1. Cắt bỏ trước dòng chứa "hang" tiếp theo là "hoa"
-  let start = 0;
+  // Tìm vị trí bắt đầu cụm "hang\nhoa"
+  let startIndex = -1;
   for (let i = 0; i < lines.length - 1; i++) {
     if (lines[i] === 'hang' && lines[i + 1] === 'hoa') {
-      start = i;
+      startIndex = i;
       break;
     }
   }
-  const filtered = lines.slice(start);
+  if (startIndex === -1) return [];
 
-  // 2. Loại bỏ các dòng chứa "chiet", "khau", "thuong", "mai"
-  const cleaned = filtered.filter(l => !/(chiet|khau|thuong|mai)/.test(l));
+  const cleanedLines = lines.slice(startIndex);
 
-  // 3. Gom thành các cụm bắt đầu từ "hang\nhoa" → kết thúc khi gặp lại "hang\nhoa"
-  const resultChunks = [];
+  // Tìm vị trí kết thúc nếu có dòng chứa "chiet", "khau", "thuong", "mai"
+  const endIndex = cleanedLines.findIndex(line =>
+    /(chiet|khau|thuong|mai)/.test(line)
+  );
+  const finalLines = endIndex >= 0 ? cleanedLines.slice(0, endIndex) : cleanedLines;
+
+  // Gom cụm: từ "hang\nhoa" → trước "hang\nhoa" tiếp theo
+  const result = [];
   let chunk = [];
 
-  for (let i = 0; i < cleaned.length; i++) {
-    const line = cleaned[i];
+  for (let i = 0; i < finalLines.length; i++) {
+    const line = finalLines[i];
 
-    // bắt đầu cụm mới nếu gặp "hang" + "hoa"
-    if (line === 'hang' && cleaned[i + 1] === 'hoa') {
-      if (chunk.length > 0) resultChunks.push(chunk.join('\n'));
-      chunk = [line, cleaned[i + 1]];
-      i++; // skip "hoa"
+    if (line === 'hang' && finalLines[i + 1] === 'hoa') {
+      if (chunk.length > 0) {
+        result.push(chunk.join(' '));
+        chunk = [];
+      }
+      chunk.push(line, finalLines[i + 1]);
+      i++;
     } else {
       chunk.push(line);
     }
   }
 
-  if (chunk.length > 0) resultChunks.push(chunk.join('\n'));
-
-  return resultChunks.join('\n\n---------------------\n\n');
+  if (chunk.length > 0) result.push(chunk.join(' '));
+  return result;
 }
 
-// Xử lý khi chọn file PDF
+// Xử lý PDF khi chọn file
 document.getElementById('pdfInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -76,22 +82,27 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
   const status = document.getElementById('status');
   const output = document.getElementById('output');
   output.value = '';
-  status.innerText = '📥 Đang đọc PDF...';
+  status.innerText = '📥 Đang đọc và xử lý PDF...';
 
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-  let fullText = '';
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const pageText = content.items.map(item => item.str).join('\n');
-    fullText += pageText + '\n';
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items.map(item => item.str).join('\n');
+      fullText += pageText + '\n';
+    }
+
+    const result = extractChunks(fullText);
+    output.value = result.join('\n');
+    status.innerText = `✅ Đã xử lý: Tìm thấy ${result.length} cụm hàng hoá`;
+  } catch (err) {
+    console.error(err);
+    status.innerText = '❌ Có lỗi khi xử lý PDF';
   }
-
-  const processed = processText(fullText);
-  output.value = processed;
-  status.innerText = '✅ Hoàn tất xử lý & lọc cụm';
 });
 </script>
 
