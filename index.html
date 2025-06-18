@@ -2,170 +2,76 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>OCR Hóa đơn - Kế toán cá nhân hoá</title>
+  <title>Trích bảng kê theo toạ độ từ PDF</title>
   <style>
     body { font-family: Arial; padding: 20px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 15px; }
-    th, td { border: 1px solid #ccc; padding: 6px; font-size: 13px; }
-    input[type="text"], input[type="number"] { width: 100%; box-sizing: border-box; }
-    .center { text-align: center; }
-    .btn-small { font-size: 11px; padding: 2px 6px; }
+    textarea { width: 100%; height: 500px; white-space: pre-wrap; font-size: 13px; }
+    #status { margin: 10px 0; color: green; }
   </style>
 </head>
 <body>
 
-<h3>📄 Trích xuất bảng kê hóa đơn (chuẩn kế toán cá nhân hoá)</h3>
+<h3>📄 Đọc hóa đơn PDF ➜ Gom bảng kê theo tọa độ</h3>
 <input type="file" id="pdfInput" accept="application/pdf">
-<div id="status">⏳ Chưa xử lý</div>
-<div id="output"></div>
+<div id="status">Chưa xử lý</div>
+<textarea id="output" placeholder="Kết quả từng dòng văn bản (đã gom theo tọa độ)..."></textarea>
 
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 
+  'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
 
-function removeVietnamese(str) {
-  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-            .replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
-}
+// Gom văn bản theo trục Y (dọc)
+function groupTextByY(items) {
+  const lines = {};
 
-function extractProductBlocks(text) {
-  const lines = removeVietnamese(text).split('\n').map(l => l.trim()).filter(Boolean);
-  let start = lines.findIndex((_, i) => lines[i] === 'hang' && lines[i + 1] === 'hoa');
-  if (start === -1) return [];
+  for (const item of items) {
+    const y = Math.round(item.transform[5]); // toạ độ dọc
+    const x = item.transform[4]; // để sắp xếp từ trái sang phải
 
-  const filtered = lines.slice(start);
-  const endIndex = filtered.findIndex(l => /(chiet|khau|thuong|mai)/.test(l));
-  const finalLines = endIndex >= 0 ? filtered.slice(0, endIndex) : filtered;
-
-  const products = [];
-  let chunk = [];
-
-  for (let i = 0; i < finalLines.length; i++) {
-    const line = finalLines[i];
-    if (line === 'hang' && finalLines[i + 1] === 'hoa') {
-      if (chunk.length) products.push(chunk.join(' '));
-      chunk = [line, finalLines[i + 1]];
-      i++;
-    } else {
-      chunk.push(line);
-    }
+    if (!lines[y]) lines[y] = [];
+    lines[y].push({ x, str: item.str });
   }
 
-  if (chunk.length) products.push(chunk.join(' '));
-  return products;
-}
+  // Sắp xếp dòng từ trên xuống dưới (giảm Y)
+  const sortedY = Object.keys(lines).sort((a, b) => b - a);
+  const outputLines = [];
 
-// ✅ ✅ FIX PHÂN TÍCH DÒNG SẢN PHẨM CHÍNH XÁC
-function parseProductLine(line) {
-  const parts = line.trim().split(/\s+/);
+  for (const y of sortedY) {
+    const line = lines[y];
+    // Sắp xếp từ trái sang phải (theo X)
+    const sortedLine = line.sort((a, b) => a.x - b.x);
+    const textLine = sortedLine.map(t => t.str).join(' ');
+    outputLines.push(textLine);
+  }
 
-  const tt = parseFloat(parts.pop().replace(/[^\d.,]/g, '').replace(',', '.'));
-  const thue = parts.pop();
-  const ck = parseFloat(parts.pop().replace(/[^\d.,]/g, '').replace(',', '.'));
-  const gia = parseFloat(parts.pop().replace(/[^\d.,]/g, '').replace(',', '.'));
-  const sl = parseInt(parts.pop());
-  const dvt = parts.pop();
-  const ten = parts.join(' ').replace(/^hang hoa /, '').trim();
-
-  return { ten, dvt, sl, gia, ck, thue, tt };
+  return outputLines;
 }
 
 document.getElementById('pdfInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
+
   const status = document.getElementById('status');
   const output = document.getElementById('output');
-  output.innerHTML = '';
-  status.innerText = '📥 Đang xử lý PDF...';
+  status.innerText = '📥 Đang đọc và xử lý...';
+  output.value = '';
 
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-  let fullText = '';
+  let finalLines = [];
+
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    fullText += content.items.map(item => item.str).join('\n') + '\n';
+    const textContent = await page.getTextContent();
+    const lines = groupTextByY(textContent.items);
+    finalLines.push(...lines);
   }
 
-  const blocks = extractProductBlocks(fullText);
-  const data = blocks.map(parseProductLine).filter(Boolean);
-
-  if (data.length === 0) {
-    status.innerText = '⚠️ Không trích được sản phẩm nào.';
-    return;
-  }
-
-  let html = `
-    <table id="itemTable">
-      <thead>
-        <tr>
-          <th>STT</th><th>Tên hàng</th><th>ĐVT</th><th>Số lượng</th>
-          <th>Đơn giá</th><th>Chiết khấu</th><th>Thuế</th><th>Thành tiền</th><th></th>
-        </tr>
-      </thead>
-      <tbody>
-        ${data.map((p, i) => `
-          <tr>
-            <td class="center">${i + 1}</td>
-            <td><input type="text" value="${p.ten}"></td>
-            <td><input type="text" value="${p.dvt}"></td>
-            <td><input class="sl" type="number" value="${p.sl}" oninput="updateTotals()"></td>
-            <td><input class="dg" type="number" value="${p.gia}" oninput="updateTotals()"></td>
-            <td><input type="number" value="${p.ck}"></td>
-            <td><input type="text" value="${p.thue}"></td>
-            <td><input class="tt" type="number" value="${p.tt}" readonly></td>
-            <td class="center"><button class="btn-small" onclick="this.closest('tr').remove(); updateTotals()">❌</button></td>
-          </tr>`).join('')}
-      </tbody>
-      <tfoot>
-        <tr>
-          <td colspan="3"><b>Tổng</b></td>
-          <td id="totalQty" class="center">0</td><td></td><td></td><td></td>
-          <td id="totalAmt" class="center">0</td><td></td>
-        </tr>
-      </tfoot>
-    </table>
-    <button onclick="addRow()">➕ Thêm hàng hóa</button>
-  `;
-  output.innerHTML = html;
-  updateTotals();
-  status.innerText = `✅ Đã trích được ${data.length} sản phẩm.`;
+  output.value = finalLines.join('\n');
+  status.innerText = `✅ Đã xử lý ${finalLines.length} dòng văn bản theo toạ độ`;
 });
-
-function updateTotals() {
-  let totalQty = 0, totalAmt = 0;
-  const rows = document.querySelectorAll('#itemTable tbody tr');
-  rows.forEach((row, i) => {
-    row.children[0].innerText = i + 1;
-    const sl = parseFloat(row.querySelector('.sl')?.value) || 0;
-    const dg = parseFloat(row.querySelector('.dg')?.value) || 0;
-    const tt = sl * dg;
-    row.querySelector('.tt').value = tt.toFixed(0);
-    totalQty += sl;
-    totalAmt += tt;
-  });
-  document.getElementById('totalQty').innerText = totalQty;
-  document.getElementById('totalAmt').innerText = totalAmt.toLocaleString();
-}
-
-function addRow() {
-  const tbody = document.querySelector('#itemTable tbody');
-  const row = document.createElement('tr');
-  row.innerHTML = `
-    <td class="center">#</td>
-    <td><input type="text" value=""></td>
-    <td><input type="text" value=""></td>
-    <td><input class="sl" type="number" value="0" oninput="updateTotals()"></td>
-    <td><input class="dg" type="number" value="0" oninput="updateTotals()"></td>
-    <td><input type="number" value="0"></td>
-    <td><input type="text" value=""></td>
-    <td><input class="tt" type="number" value="0" readonly></td>
-    <td class="center"><button class="btn-small" onclick="this.closest('tr').remove(); updateTotals()">❌</button></td>
-  `;
-  tbody.appendChild(row);
-  updateTotals();
-}
 </script>
 
 </body>
