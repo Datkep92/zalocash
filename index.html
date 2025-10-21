@@ -2,204 +2,469 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Trích bảng kê theo HKD + lọc số lượng</title>
+  <!-- Ngăn thu phóng khi pinch hoặc double-tap -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>YoCash - Vay Nhanh CCCD</title>
   <style>
-    body { font-family: Arial; display: flex; padding: 20px; gap: 20px; }
-    #left { width: 200px; }
-    #left h4 { margin-top: 0; }
-    #left ul { list-style: none; padding: 0; }
-    #left li { cursor: pointer; margin: 5px 0; color: blue; text-decoration: underline; }
-    #right { flex: 1; }
-    table { border-collapse: collapse; width: 100%; margin-top: 15px; }
-    th, td { border: 1px solid #ccc; padding: 5px; font-size: 13px; }
-    input { width: 100%; box-sizing: border-box; }
+    /* Reset mặc định */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f5;
+    }
+
+    /* Khung chứa toàn bộ nội dung */
+    .container {
+      max-width: 100%;
+      padding: 3px;
+    }
+
+.header {
+  margin: 0;           /* Loại bỏ khoảng cách mặc định */
+  padding: 0;          /* Loại bỏ padding để sát viền trên */
+  text-align: center;  /* Căn giữa nội dung */
+}
+
+.header h1 {
+  color: #ff007a;      /* Màu chữ */
+  font-size: 24px;     /* Kích thước chữ */
+  margin: 0;           /* Loại bỏ margin của h1 để sát với phần viền trên */
+  padding: 0;          /* Loại bỏ padding của h1 */
+  background-color: #fff;  /* Màu nền trắng */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);  /* Bóng đổ nhẹ để nổi bật */
+
+}
+
+
+   .nav button {
+  background-color: #fff;
+  border: 1px solid #d9d9d9;
+  padding: 8px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 10px;
+  margin: 4px;
+  
+  /* Thêm hiệu ứng bóng đổ để tạo chiều sâu 3D */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;  /* Thêm hiệu ứng chuyển động khi hover */
+}
+
+/* Thêm hiệu ứng khi người dùng hover (di chuột lên nút) */
+.nav button:hover {
+  background-color: #f1f1f1;  /* Thay đổi màu nền khi hover */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.08); /* Bóng đổ đậm hơn */
+  transform: translateY(-2px);  /* Tạo hiệu ứng đẩy nút lên khi hover */
+}
+
+/* Thêm hiệu ứng khi nhấn nút (active) */
+.nav button:active {
+  background-color: #e0e0e0;  /* Thay đổi màu nền khi nhấn */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);  /* Bóng đổ nhẹ hơn khi nhấn */
+  transform: translateY(2px);  /* Tạo hiệu ứng đẩy nút xuống khi nhấn */
+}
+
+    /* Đoạn giới thiệu ngắn */
+    .intro {
+      text-align: center;
+      font-size: 14px;
+      padding: 10px 0;
+      line-height: 0.4;
+    }
+
+    /* Lưới hiển thị các item */
+    .grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      margin: -3px;
+    }
+
+    .item {
+  background-color: #fff;
+  border: 1px solid #ffcc00;
+  border-radius: 10px;
+  text-align: center;
+  padding: 0;
+  margin: 5px 0; /* Thêm margin trên dưới */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  flex: 1 1 calc(25% - 6px);
+  box-sizing: border-box;
+}
+
+    .image-container {
+      position: relative;
+      overflow: hidden;
+      padding: 0;
+      margin: 0;
+    }
+
+    .item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      margin: 0;
+      padding: 0;
+      border-top-left-radius: 5px;
+      border-top-right-radius: 5px;
+    }
+
+    /* Nhãn giảm giá trên ảnh */
+    .image-container .discount-label {
+      position: absolute;
+      top: 0;
+      right: 0;
+      background-color: #ffcc00;
+      color: #fff;
+      font-size: 10px;
+      padding: 0px 4px;
+      border-top-right-radius: 5px;
+      border-bottom-left-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.2;
+    }
+
+    .item .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: stretch;
+      margin: 0;
+      margin-top: 3px;
+      min-height: 48px;
+      padding: 0 3px;
+    }
+
+    .item .amount, .item .limit {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .item .amount span, .item .limit span {
+      font-size: 10px;
+      color: #0055aa;
+      line-height: 0.9;
+    }
+
+    .item .amount span:nth-child(1) {
+      margin-top: 3px;
+      font-size: 10px;
+    }
+
+    .item .amount span:nth-child(2) {
+      font-size: 16px;
+      margin-top: 2px;
+      color: #ff0000;
+      margin: 2;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .item .amount span:nth-child(3) {
+      font-size: 12px;
+      color: #0055aa;
+      margin-top: 2px;
+      text-align: center;
+    }
+
+    .item .period {
+      font-size: 10px;
+      color: #666;
+      margin: 3px 0;
+      line-height: 1.2;
+      min-height: 12px;
+    }
+
+   /* Dòng ưu đãi */
+.item .discount {
+  font-size: 8px;
+  color: #fff;
+  background-color: #ff007a;
+  padding: 0 0px;  /* Padding trên và dưới bằng 0 */
+  margin: 0px 0;
+  line-height: 1;
+  min-height: 12px;
+  border-radius: 0;  /* Không bo góc */
+}
+
+    .item .button {
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      padding: 0;
+      border-bottom-left-radius: 5px;
+      border-bottom-right-radius: 5px;
+      border-top-left-radius: 0;
+      border-top-right-radius: 0;
+      cursor: pointer;
+      font-size: 12px;
+      margin-top: 3px;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 16px;
+      box-sizing: border-box;
+    }
   </style>
 </head>
 <body>
+  <div class="container">
+    <div class="header">
+      <h1>YOCASH - VAY NHANH CCCD</h1>
+    </div>
 
-<div id="left">
-  <h4>📋 Danh sách HKD</h4>
-  <ul id="hkdList"></ul>
-</div>
+    <div class="nav">
+      <button>Hướng Dẫn Vay Để Duyệt</button>
+      <button>Các Thứ Doanh Lưu Đào Khi Vay</button>
+    </div>
 
-<div id="right">
-  <h3>📄 Bảng kê hàng hóa</h3>
-  <input type="file" id="pdfInput" accept="application/pdf"><br>
-  <div id="status">Chưa xử lý</div>
-  <div id="output"></div>
-</div>
+    <div class="intro">
+      <p>Danh sách khoản vay Online chỉ cần CCCD</p>
+      <p>Chỉ cần CCCD giấy/nguyên trong ngày.</p>
+    </div>
 
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
-<script>
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
+    <div class="grid">
+      
+      
+      
+      
+      
+      <!-- Item mẫu -->
+ <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
+<a href="https://www.zalocash.net" class="item">
+  <div class="image-container">
+    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
+    <div class="discount-label">0% lãi</div>
+  </div>
+  <div class="info-row">
+    <div class="amount">
+      <span>Số Tiền:</span>
+      <span>1-10</span>
+      <span>Triệu</span>
+    </div>
+    <div class="limit">
+      <span>Thủ tục</span>
+      <span>CCCD</span>
+      <span>tối đa</span>
+      <span>3 tháng</span>
+    </div>
+  </div>
+  <div class="period">Tuổi: 20 - 60</div>
+  <div class="discount">Khuyến mãi</div>
+  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
+ <div class="button">CHI TIẾT</div>
+</a>
+      
+      
+      
+      
 
-const hkdData = {}; // { HKD: [sản phẩm] }
+      <!-- Thêm các item khác ở đây -->
+ <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
+<a href="https://www.zalocash.net" class="item">
+  <div class="image-container">
+    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
+    <div class="discount-label">0% lãi</div>
+  </div>
+  <div class="info-row">
+    <div class="amount">
+      <span>Số Tiền:</span>
+      <span>1-10</span>
+      <span>Triệu</span>
+    </div>
+    <div class="limit">
+      <span>Thủ tục</span>
+      <span>CCCD</span>
+      <span>tối đa</span>
+      <span>3 tháng</span>
+    </div>
+  </div>
+  <div class="period">Tuổi: 20 - 60</div>
+  <div class="discount">Khuyến mãi</div>
+  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
+ <div class="button">CHI TIẾT</div>
+</a>
+      
+      
+      
+      
+      <!-- Các item khác -->
+ <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
+<a href="https://www.zalocash.net" class="item">
+  <div class="image-container">
+    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
+    <div class="discount-label">0% lãi</div>
+  </div>
+  <div class="info-row">
+    <div class="amount">
+      <span>Số Tiền:</span>
+      <span>1-10</span>
+      <span>Triệu</span>
+    </div>
+    <div class="limit">
+      <span>Thủ tục</span>
+      <span>CCCD</span>
+      <span>tối đa</span>
+      <span>3 tháng</span>
+    </div>
+  </div>
+  <div class="period">Tuổi: 20 - 60</div>
+  <div class="discount">Khuyến mãi</div>
+  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
+ <div class="button">CHI TIẾT</div>
+</a>
+      
+      
+      
+      
+ <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
+<a href="https://www.zalocash.net" class="item">
+  <div class="image-container">
+    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
+    <div class="discount-label">0% lãi</div>
+  </div>
+  <div class="info-row">
+    <div class="amount">
+      <span>Số Tiền:</span>
+      <span>1-10</span>
+      <span>Triệu</span>
+    </div>
+    <div class="limit">
+      <span>Thủ tục</span>
+      <span>CCCD</span>
+      <span>tối đa</span>
+      <span>3 tháng</span>
+    </div>
+  </div>
+  <div class="period">Tuổi: 20 - 60</div>
+  <div class="discount">Khuyến mãi</div>
+  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
+ <div class="button">CHI TIẾT</div>
+</a>
+      
+      
+      
+      
+ <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
+<a href="https://www.zalocash.net" class="item">
+  <div class="image-container">
+    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
+    <div class="discount-label">0% lãi</div>
+  </div>
+  <div class="info-row">
+    <div class="amount">
+      <span>Số Tiền:</span>
+      <span>1-10</span>
+      <span>Triệu</span>
+    </div>
+    <div class="limit">
+      <span>Thủ tục</span>
+      <span>CCCD</span>
+      <span>tối đa</span>
+      <span>3 tháng</span>
+    </div>
+  </div>
+  <div class="period">Tuổi: 20 - 60</div>
+  <div class="discount">Khuyến mãi</div>
+  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
+ <div class="button">CHI TIẾT</div>
+</a>
+      
+      
+      
+      
 
-function removeVN(str) {
-  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
-}
+      <!-- Thêm các item khác ở đây -->
+ <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
+<a href="https://www.zalocash.net" class="item">
+  <div class="image-container">
+    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
+    <div class="discount-label">0% lãi</div>
+  </div>
+  <div class="info-row">
+    <div class="amount">
+      <span>Số Tiền:</span>
+      <span>1-10</span>
+      <span>Triệu</span>
+    </div>
+    <div class="limit">
+      <span>Thủ tục</span>
+      <span>CCCD</span>
+      <span>tối đa</span>
+      <span>3 tháng</span>
+    </div>
+  </div>
+  <div class="period">Tuổi: 20 - 60</div>
+  <div class="discount">Khuyến mãi</div>
+  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
+ <div class="button">CHI TIẾT</div>
+</a>
+      
+      
+      
+      
+      <!-- Các item khác -->
+ <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
+<a href="https://www.zalocash.net" class="item">
+  <div class="image-container">
+    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
+    <div class="discount-label">0% lãi</div>
+  </div>
+  <div class="info-row">
+    <div class="amount">
+      <span>Số Tiền:</span>
+      <span>1-10</span>
+      <span>Triệu</span>
+    </div>
+    <div class="limit">
+      <span>Thủ tục</span>
+      <span>CCCD</span>
+      <span>tối đa</span>
+      <span>3 tháng</span>
+    </div>
+  </div>
+  <div class="period">Tuổi: 20 - 60</div>
+  <div class="discount">Khuyến mãi</div>
+  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
+ <div class="button">CHI TIẾT</div>
+</a>
+      
+      
+      
+      
+ <!-- Bao quanh toàn bộ .item với thẻ a để mở link khi nhấn vào item -->
+<a href="https://www.zalocash.net" class="item">
+  <div class="image-container">
+    <img src="https://ktkttayninh.edu.vn/wp-content/uploads/2024/07/app-vay-tien-cay-vang.jpg" alt="Cayvang">
+    <div class="discount-label">0% lãi</div>
+  </div>
+  <div class="info-row">
+    <div class="amount">
+      <span>Số Tiền:</span>
+      <span>1-10</span>
+      <span>Triệu</span>
+    </div>
+    <div class="limit">
+      <span>Thủ tục</span>
+      <span>CCCD</span>
+      <span>tối đa</span>
+      <span>3 tháng</span>
+    </div>
+  </div>
+  <div class="period">Tuổi: 20 - 60</div>
+  <div class="discount">Khuyến mãi</div>
+  <!-- Nút "CHI TIẾT" vẫn giữ lại trong item -->
+ <div class="button">CHI TIẾT</div>
+</a>
 
-function groupTextByY(items) {
-  const lines = {};
-  for (const item of items) {
-    const y = Math.round(item.transform[5]);
-    const x = item.transform[4];
-    if (!lines[y]) lines[y] = [];
-    lines[y].push({ x, str: item.str });
-  }
 
-  const sortedY = Object.keys(lines).sort((a, b) => b - a);
-  const result = [];
-
-  for (const y of sortedY) {
-    const line = lines[y];
-    const sortedLine = line.sort((a, b) => a.x - b.x);
-    result.push(sortedLine.map(t => t.str).join(' '));
-  }
-
-  return result;
-}
-
-function parseInvoiceBlocks(lines) {
-  const allBlocks = [];
-  let block = [];
-
-  for (const line of lines) {
-    if (/^mau so|^ky hieu|^so:|^hoa don gia tri/i.test(line) && block.length) {
-      allBlocks.push(block);
-      block = [];
-    }
-    block.push(line);
-  }
-  if (block.length) allBlocks.push(block);
-  return allBlocks;
-}
-
-function extractDataFromBlock(block) {
-  const HKD = block.find(l => /ten nguoi mua|ho ten nguoi mua/i.test(removeVN(l))) || 'HKD không rõ';
-  const NPP = block.find(l => /ten nguoi ban/i.test(removeVN(l))) || 'NPP không rõ';
-
-  const data = [];
-
-  const start = block.findIndex(l => /hang hoa, dich vu/i.test(removeVN(l)));
-  if (start === -1) return { HKD, NPP, data };
-
-  for (let i = start + 1; i < block.length; i++) {
-    const line = block[i];
-    if (/^tong|^thue|^tong tien|^chu ky/i.test(removeVN(line))) break;
-
-    const parts = line.trim().split(/\s+/);
-    if (parts.length < 6) continue;
-
-    const last = parts.slice(-6);
-    const name = parts.slice(0, parts.length - 6).join(' ');
-
-    // ✅ LỌC SỐ LƯỢNG
-    const slRaw = last[1].replace(',', '.');
-    const sl = Number(slRaw);
-    if (!Number.isFinite(sl) || sl === 0) continue;
-
-    data.push({
-      ten: name,
-      dvt: last[0],
-      sl: sl,
-      gia: parseFloat(last[2].replace(',', '.')),
-      ck: parseFloat(last[3].replace(',', '.')),
-      thue: last[4],
-      tt: parseFloat(last[5].replace(',', '.')),
-      loai: 'Hàng hóa',
-      hkd: HKD.replace(/(ten nguoi mua|ho ten nguoi mua hang):?/i, '').trim(),
-      npp: NPP.replace(/ten nguoi ban:?/i, '').trim()
-    });
-  }
-
-  return {
-    HKD: HKD.replace(/(ten nguoi mua|ho ten nguoi mua hang):?/i, '').trim(),
-    NPP: NPP.replace(/ten nguoi ban:?/i, '').trim(),
-    data
-  };
-}
-
-function displayHKDList() {
-  const list = document.getElementById('hkdList');
-  list.innerHTML = '';
-  Object.keys(hkdData).forEach(hkd => {
-    const li = document.createElement('li');
-    li.textContent = hkd;
-    li.onclick = () => showTableFor(hkd);
-    list.appendChild(li);
-  });
-}
-
-function showTableFor(hkd) {
-  const items = hkdData[hkd];
-  const output = document.getElementById('output');
-  if (!items || items.length === 0) {
-    output.innerHTML = '<i>Không có dữ liệu</i>';
-    return;
-  }
-
-  let html = `<table><thead><tr>
-    <th>STT</th><th>Tên hàng</th><th>ĐVT</th><th>Số lượng</th>
-    <th>Đơn giá</th><th>Chiết khấu</th><th>Thuế</th><th>Thành tiền</th>
-    <th>Loại</th><th>HKD</th><th>NPP</th>
-  </tr></thead><tbody>`;
-
-  items.forEach((p, i) => {
-    html += `<tr>
-      <td>${i + 1}</td>
-      <td>${p.ten}</td>
-      <td>${p.dvt}</td>
-      <td>${p.sl}</td>
-      <td>${p.gia}</td>
-      <td>${p.ck}</td>
-      <td>${p.thue}</td>
-      <td>${p.tt}</td>
-      <td>${p.loai}</td>
-      <td>${p.hkd}</td>
-      <td>${p.npp}</td>
-    </tr>`;
-  });
-
-  html += `</tbody></table>`;
-  output.innerHTML = html;
-}
-
-document.getElementById('pdfInput').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const status = document.getElementById('status');
-  status.innerText = '📥 Đang xử lý...';
-
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
-  let allLines = [];
-
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const lines = groupTextByY(content.items);
-    allLines.push(...lines);
-  }
-
-  const blocks = parseInvoiceBlocks(allLines);
-
-  for (const block of blocks) {
-    const parsed = extractDataFromBlock(block);
-    if (!parsed.HKD || parsed.data.length === 0) continue;
-
-    if (!hkdData[parsed.HKD]) hkdData[parsed.HKD] = [];
-    hkdData[parsed.HKD].push(...parsed.data);
-  }
-
-  displayHKDList();
-  status.innerText = `✅ Đã xử lý ${blocks.length} hóa đơn / ${Object.keys(hkdData).length} HKD`;
-});
-</script>
-
+    </div>
+  </div>
 </body>
 </html>
