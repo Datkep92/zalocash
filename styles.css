@@ -1,0 +1,427 @@
+/* Reset mặc định */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f5f5f5;
+  color: #333;
+  transform: scale(0.5);
+  transform-origin: top center;
+  width: 200%;
+  position: relative;
+  left: -50%;
+}
+
+/* Khung chứa toàn bộ nội dung */
+.container {
+  max-width: 100%;
+  padding: 8px;
+}
+
+.header {
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
+.header h1 {
+  color: #ff007a;
+  font-size: 22px;
+  margin: 0;
+  padding: 12px 0;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.nav {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+
+.nav button {
+  background-color: #fff;
+  border: 1px solid #d9d9d9;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  margin: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.nav button:hover {
+  background-color: #f8f8f8;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  border-color: #ff007a;
+}
+
+.nav button:active {
+  background-color: #f0f0f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transform: translateY(1px);
+}
+
+/* Đoạn giới thiệu ngắn */
+.intro {
+  text-align: center;
+  font-size: 14px;
+  padding: 10px 0;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+
+/* Lưới hiển thị các item */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.item {
+  background-color: #fff;
+  border: 1px solid #ffcc00;
+  border-radius: 8px;
+  text-align: center;
+  padding: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  border-color: #ff9900;
+}
+
+.image-container {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+}
+
+.item img {
+  width: 100%;
+  height: 60px; /* Giảm chiều cao ảnh */
+  object-fit: cover;
+  display: block;
+  margin: 0;
+  padding: 0;
+}
+
+/* Nhãn giảm giá trên ảnh */
+.image-container .discount-label {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: #ffcc00;
+  color: #fff;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-bottom-left-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+}
+
+.item .info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  margin: 0;
+  margin-top: 3px;
+  min-height: 24px; /* Giảm chiều cao */
+  padding: 0 5px;
+}
+
+.item .amount, .item .limit {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.item .amount span, .item .limit span {
+  font-size: 10px;
+  color: #0055aa;
+  line-height: 1.1;
+}
+
+.item .amount span:nth-child(1) {
+  margin-top: 2px;
+  font-size: 10px;
+}
+
+.item .amount span:nth-child(2) {
+  font-size: 16px;
+  margin-top: 1px;
+  color: #ff0000;
+  margin: 0;
+  font-weight: 600;
+  text-align: center;
+}
+
+.item .amount span:nth-child(3) {
+  font-size: 12px;
+  color: #0055aa;
+  margin-top: 1px;
+  text-align: center;
+}
+
+.item .period {
+  font-size: 10px;
+  color: #666;
+  margin: 3px 0;
+  line-height: 1.2;
+  min-height: 12px;
+  padding: 0 5px;
+}
+
+/* Dòng ưu đãi */
+.item .discount {
+  font-size: 10px;
+  color: #fff;
+  background-color: #ff007a;
+  padding: 2px 0;
+  margin: 0;
+  line-height: 1.2;
+  min-height: 16px;
+  border-radius: 0;
+}
+
+.item .button {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 12px;
+  margin-top: 3px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  box-sizing: border-box;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.item .button:hover {
+  background-color: #0056b3;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  
+  .container {
+    padding: 6px;
+  }
+  
+  .item img {
+    height: 150px; /* Giảm thêm trên mobile */
+  }
+}
+
+/* Biến CSS để dễ dàng điều chỉnh */
+:root {
+  --image-height: 100px; /* Thay đổi số này để điều chỉnh chiều cao */
+  --image-width: 100%;   /* Thay đổi % này để điều chỉnh chiều rộng */
+}
+
+/* Áp dụng cho ảnh */
+.item img {
+  width: var(--image-width);
+  height: var(--image-height);
+  object-fit: cover;
+  display: block;
+  margin: 0;
+  padding: 0;
+}
+
+/* Hoặc dùng class linh hoạt */
+.image-small {
+  height: 40px !important;
+}
+
+.image-medium {
+  height: 60px !important;
+}
+
+.image-large {
+  height: 80px !important;
+}
+
+/* Hoặc điều chỉnh trực tiếp bằng inline style trong HTML */
+/* <img src="..." style="height: 50px; width: 100%;"> */
+
+/* Biến CSS để điều chỉnh khoảng cách */
+:root {
+  --grid-gap: 8px;           /* Khoảng cách giữa các item */
+  --item-margin: 5px;        /* Margin của mỗi item */
+  --item-padding: 0;         /* Padding bên trong item */
+  --container-padding: 8px;  /* Padding của container */
+}
+
+/* Điều chỉnh grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--grid-gap);
+  margin: 0;
+}
+
+/* Điều chỉnh item */
+.item {
+  background-color: #fff;
+  border: 1px solid #ffcc00;
+  border-radius: 8px;
+  text-align: center;
+  padding: var(--item-padding);
+  margin: var(--item-margin);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+/* Điều chỉnh container */
+.container {
+  max-width: 100%;
+  padding: var(--container-padding);
+}
+
+/* Điều chỉnh khoảng cách bên trong item */
+.item .info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  margin: 0;
+  margin-top: 5px;  /* Thay đổi số này */
+  min-height: 48px;
+  padding: 0 5px;   /* Thay đổi số này */
+}
+
+.item .period {
+  font-size: 10px;
+  color: #666;
+  margin: 5px 0;    /* Thay đổi số này */
+  line-height: 1.2;
+  min-height: 12px;
+  padding: 0 5px;   /* Thay đổi số này */
+}
+
+.item .button {
+  margin-top: 5px;  /* Thay đổi số này */
+}
+
+/* Class helper để điều chỉnh nhanh */
+.compact-layout {
+  --grid-gap: 4px;
+  --item-margin: 2px;
+  --container-padding: 4px;
+}
+
+.spacious-layout {
+  --grid-gap: 16px;
+  --item-margin: 10px;
+  --container-padding: 16px;
+}
+.no-data {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  font-style: italic;
+  grid-column: 1 / -1;
+}
+/* Thêm vào cuối file styless.css */
+
+/* Inline form styles */
+.inline-form {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.inline-form-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 8px;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e1e5e9;
+}
+
+.inline-form-group:last-child {
+    margin-bottom: 0;
+}
+
+.inline-label {
+    min-width: 120px;
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.inline-input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.inline-input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,0.1);
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+    .inline-form-group {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    
+    .inline-label {
+        min-width: auto;
+    }
+}
